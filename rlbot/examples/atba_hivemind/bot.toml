@@ -1,3 +1,5 @@
+#:schema https://rlbot.org/schemas/agent.json
+
 [settings]
 name = "Rust Example Bot (atba_hivemind)"
 agent_id = "rlbot/rust-example/atba_hivemind"
