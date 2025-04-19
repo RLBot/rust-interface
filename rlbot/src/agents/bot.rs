@@ -6,8 +6,10 @@ use crate::{
     util::{PacketQueue, write_multiple_packets},
 };
 
+use super::AgentError;
+
 #[allow(unused_variables)]
-pub trait Agent {
+pub trait BotAgent {
     // TODO: Maybe pass a struct?
     fn new(
         team: u32,
@@ -21,14 +23,6 @@ pub trait Agent {
     fn on_ball_prediction(&mut self, ball_prediction: &BallPrediction) {}
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum AgentError {
-    #[error("Agent panicked")]
-    AgentPanic,
-    #[error("RLBot failed")]
-    PacketParseError(#[from] crate::RLBotError),
-}
-
 /// Run multiple agents with n agents per thread. They share a connection.
 /// Ok(()) means a successful exit; one of the bots received a None packet.
 ///
@@ -39,7 +33,7 @@ pub enum AgentError {
 /// # Panics
 ///
 /// Panics if a thread can't be spawned for each agent.
-pub fn run_agents<T: Agent>(
+pub fn run_agents<T: BotAgent>(
     // TODO: Maybe pass a struct?
     agent_id: String,
     wants_ball_predictions: bool,
@@ -186,7 +180,7 @@ pub fn run_agents<T: Agent>(
     Ok(())
 }
 
-fn run_agent<T: Agent>(
+fn run_agent<T: BotAgent>(
     incoming_recver: kanal::Receiver<Arc<Packet>>,
     team: u32,
     controllable_info: ControllableInfo,

@@ -2,11 +2,11 @@ use std::f32::consts::PI;
 
 use rlbot::{
     RLBotConnection,
+    agents::hivemind::{HivemindBotAgent, run_agent},
     flat::{
         ControllableTeamInfo, ControllerState, FieldInfo, GamePacket, MatchConfiguration,
         PlayerInput,
     },
-    hivemind::{Hivemind, run_hivemind},
     util::{PacketQueue, RLBotEnvironment},
 };
 
@@ -20,7 +20,7 @@ struct AtbaHivemind {
     field_info: FieldInfo,
 }
 
-impl Hivemind for AtbaHivemind {
+impl HivemindBotAgent for AtbaHivemind {
     fn new(
         controllable_team_info: ControllableTeamInfo,
         match_config: MatchConfiguration,
@@ -121,7 +121,7 @@ fn main() {
     // all of the bots in a team.
 
     // Blocking.
-    run_hivemind::<AtbaHivemind>(agent_id.clone(), true, true, rlbot_connection)
+    run_agent::<AtbaHivemind>(agent_id.clone(), true, true, rlbot_connection)
         .expect("run_hivemind crashed");
 
     println!("Hivemind with agent_id `{agent_id}` exited nicely");

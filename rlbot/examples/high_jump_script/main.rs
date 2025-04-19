@@ -1,10 +1,10 @@
 use rlbot::{
     RLBotConnection,
+    agents::script::{Script, run_agent},
     flat::{
         DesiredCarState, DesiredGameState, DesiredPhysics, FieldInfo, GamePacket,
         MatchConfiguration, MatchPhase, Vector3Partial,
     },
-    scripts::{Script, run_script},
     util::{PacketQueue, RLBotEnvironment},
 };
 
@@ -89,8 +89,8 @@ fn main() {
     let rlbot_connection = RLBotConnection::new(&server_addr).expect("connection");
 
     // Blocking.
-    run_script::<MyScript>(agent_id.clone(), true, true, rlbot_connection)
-        .expect("run_script crashed");
+    run_agent::<MyScript>(agent_id.clone(), true, true, rlbot_connection)
+        .expect("run_agent crashed");
 
     println!("Script with agent_id `{agent_id}` exited nicely");
 }

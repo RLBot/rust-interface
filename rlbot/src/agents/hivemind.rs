@@ -8,8 +8,10 @@ use crate::{
     util::{PacketQueue, write_multiple_packets},
 };
 
+use super::AgentError;
+
 #[allow(unused_variables)]
-pub trait Hivemind {
+pub trait HivemindBotAgent {
     fn new(
         controllable_team_info: ControllableTeamInfo,
         match_configuration: MatchConfiguration,
@@ -21,20 +23,12 @@ pub trait Hivemind {
     fn on_ball_prediction(&mut self, ball_prediction: BallPrediction) {}
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum HivemindError {
-    #[error("Hivemind panicked")]
-    HivemindPanic,
-    #[error("RLBot failed")]
-    PacketParseError(#[from] crate::RLBotError),
-}
-
-pub fn run_hivemind<T: Hivemind>(
+pub fn run_agent<T: HivemindBotAgent>(
     agent_id: String,
     wants_ball_predictions: bool,
     wants_comms: bool,
     mut connection: RLBotConnection,
-) -> Result<(), HivemindError> {
+) -> Result<(), AgentError> {
     connection.send_packet(ConnectionSettings {
         agent_id,
         wants_ball_predictions,

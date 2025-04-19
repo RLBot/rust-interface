@@ -7,6 +7,8 @@ use crate::{
     util::{PacketQueue, write_multiple_packets},
 };
 
+use super::AgentError;
+
 #[allow(unused_variables)]
 pub trait Script {
     fn new(
@@ -20,20 +22,12 @@ pub trait Script {
     fn on_ball_prediction(&mut self, ball_prediction: BallPrediction) {}
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum ScriptError {
-    #[error("Script panicked")]
-    ScriptPanic,
-    #[error("RLBot failed")]
-    PacketParseError(#[from] crate::RLBotError),
-}
-
-pub fn run_script<T: Script>(
+pub fn run_agent<T: Script>(
     agent_id: String,
     wants_ball_predictions: bool,
     wants_comms: bool,
     mut connection: RLBotConnection,
-) -> Result<(), ScriptError> {
+) -> Result<(), AgentError> {
     connection.send_packet(ConnectionSettings {
         agent_id: agent_id.clone(),
         wants_ball_predictions,

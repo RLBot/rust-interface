@@ -2,7 +2,7 @@ use std::{f32::consts::PI, sync::Arc};
 
 use rlbot::{
     RLBotConnection,
-    agents::{Agent, run_agents},
+    agents::bot::{BotAgent, run_agents},
     flat::{
         ControllableInfo, ControllerState, FieldInfo, GamePacket, MatchConfiguration, PlayerInput,
     },
@@ -19,7 +19,7 @@ struct AtbaAgent {
     field_info: Arc<FieldInfo>,
 }
 
-impl Agent for AtbaAgent {
+impl BotAgent for AtbaAgent {
     fn new(
         team: u32,
         controllable_info: ControllableInfo,

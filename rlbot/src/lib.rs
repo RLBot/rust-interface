@@ -8,8 +8,6 @@ use rlbot_flat::planus::{self, ReadAsRoot};
 use thiserror::Error;
 
 pub mod agents;
-pub mod hivemind;
-pub mod scripts;
 pub mod util;
 
 #[cfg(feature = "glam")]
