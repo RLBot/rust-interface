@@ -1,4 +1,3 @@
-#[allow(clippy::all, dead_code)]
 pub(crate) mod planus_flat;
 pub use planus;
 pub use planus_flat::rlbot::flat;

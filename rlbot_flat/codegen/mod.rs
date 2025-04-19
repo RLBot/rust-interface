@@ -12,7 +12,7 @@ const OUT_FILE: &str = "./src/planus_flat.rs";
 fn get_git_rev(dir: impl AsRef<Path>) -> Option<String> {
     let output = std::process::Command::new("git")
         .current_dir(dir)
-        .args(&["rev-parse", "--short", "HEAD"])
+        .args(["rev-parse", "--short", "HEAD"])
         .output()
         .ok()?;
 
