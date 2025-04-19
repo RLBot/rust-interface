@@ -3,6 +3,37 @@ pub(crate) mod planus_flat;
 pub use planus;
 pub use planus_flat::rlbot::flat;
 
+impl From<flat::Vector3> for flat::Vector3Partial {
+    fn from(value: flat::Vector3) -> Self {
+        Self {
+            x: Some(flat::Float { val: value.x }),
+            y: Some(flat::Float { val: value.y }),
+            z: Some(flat::Float { val: value.z }),
+        }
+    }
+}
+
+impl From<flat::Rotator> for flat::RotatorPartial {
+    fn from(value: flat::Rotator) -> Self {
+        Self {
+            pitch: Some(flat::Float { val: value.pitch }),
+            yaw: Some(flat::Float { val: value.yaw }),
+            roll: Some(flat::Float { val: value.roll }),
+        }
+    }
+}
+
+impl From<flat::Physics> for flat::DesiredPhysics {
+    fn from(value: flat::Physics) -> Self {
+        Self {
+            location: Some(Box::new(value.location.into())),
+            rotation: Some(Box::new(value.rotation.into())),
+            velocity: Some(Box::new(value.velocity.into())),
+            angular_velocity: Some(Box::new(value.angular_velocity.into())),
+        }
+    }
+}
+
 #[cfg(feature = "glam")]
 pub use glam;
 
