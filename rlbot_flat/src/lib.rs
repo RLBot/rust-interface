@@ -3,12 +3,18 @@ pub(crate) mod planus_flat;
 pub use planus;
 pub use planus_flat::rlbot::flat;
 
+impl From<f32> for flat::Float {
+    fn from(value: f32) -> Self {
+        Self { val: value }
+    }
+}
+
 impl From<flat::Vector3> for flat::Vector3Partial {
     fn from(value: flat::Vector3) -> Self {
         Self {
-            x: Some(flat::Float { val: value.x }),
-            y: Some(flat::Float { val: value.y }),
-            z: Some(flat::Float { val: value.z }),
+            x: Some(value.x.into()),
+            y: Some(value.y.into()),
+            z: Some(value.z.into()),
         }
     }
 }
