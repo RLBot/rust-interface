@@ -3,14 +3,14 @@ use std::f32::consts::PI;
 use rlbot::{
     Packet, RLBotConnection,
     flat::{ConnectionSettings, ControllerState, PlayerInput},
-    util::RLBotEnvironment,
+    util::AgentEnvironment,
 };
 
 fn main() {
-    let RLBotEnvironment {
+    let AgentEnvironment {
         server_addr,
         agent_id,
-    } = RLBotEnvironment::from_env();
+    } = AgentEnvironment::from_env();
     let agent_id = agent_id.unwrap_or_else(|| "rlbot/rust-example/atba_raw".into());
 
     let mut rlbot_connection = RLBotConnection::new(&server_addr).expect("connection");

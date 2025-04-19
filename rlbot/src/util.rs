@@ -1,15 +1,15 @@
-use std::{env, io::Write, mem};
+use std::{env, mem};
 
-use crate::{Packet, RLBotConnection, RLBotError};
+use crate::Packet;
 
-pub struct RLBotEnvironment {
+pub struct AgentEnvironment {
     /// Will fallback to 127.0.0.1:23234
     pub server_addr: String,
     /// No fallback and therefor Option<>
     pub agent_id: Option<String>,
 }
 
-impl RLBotEnvironment {
+impl AgentEnvironment {
     // Reads from environment variables RLBOT_SERVER_ADDR/(RLBOT_SERVER_IP & RLBOT_SERVER_PORT) and RLBOT_AGENT_ID
     #[must_use]
     pub fn from_env() -> Self {
@@ -56,28 +56,4 @@ impl PacketQueue {
     pub(crate) fn empty(&mut self) -> Vec<Packet> {
         mem::take(&mut self.internal_queue)
     }
-}
-
-pub(crate) fn write_multiple_packets(
-    connection: &mut RLBotConnection,
-    packets: impl Iterator<Item = Packet>,
-) -> Result<(), RLBotError> {
-    let to_write = packets
-        // convert Packet to Vec<u8> that RLBotServer can understand
-        .flat_map(|x| {
-            let data_type_bin = x.data_type().to_be_bytes().to_vec();
-            let payload = x.build(&mut connection.builder);
-            let data_len_bin = u16::try_from(payload.len())
-                .expect("Payload can't be greater than a u16")
-                .to_be_bytes()
-                .to_vec();
-
-            [data_type_bin, data_len_bin, payload].concat()
-        })
-        .collect::<Vec<_>>();
-
-    connection.stream.write_all(&to_write)?;
-    connection.stream.flush()?;
-
-    Ok(())
 }

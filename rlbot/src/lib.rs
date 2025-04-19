@@ -31,6 +31,8 @@ pub enum RLBotError {
     Connection(#[from] std::io::Error),
     #[error("Parsing packet failed")]
     PacketParseError(#[from] PacketParseError),
+    #[error("Building packet failed")]
+    PacketBuildError(#[from] PacketBuildError),
     #[error("Invalid address, cannot parse")]
     InvalidAddrError(#[from] AddrParseError),
 }
@@ -194,18 +196,26 @@ pub struct RLBotConnection {
 }
 
 impl RLBotConnection {
+    pub(crate) fn send_packets_enum(
+        &mut self,
+        packets: impl Iterator<Item = Packet>,
+    ) -> Result<(), RLBotError> {
+        let to_write = packets
+            // convert Packet to Vec<u8> that RLBotServer can understand
+            .flat_map(|x| {
+                build_packet_payload(x, &mut self.builder).expect("failed to build packet")
+            })
+            .collect::<Vec<_>>();
+
+        self.stream.write_all(&to_write)?;
+        self.stream.flush()?;
+
+        Ok(())
+    }
+
     fn send_packet_enum(&mut self, packet: Packet) -> Result<(), RLBotError> {
-        let data_type_bin = packet.data_type().to_be_bytes().to_vec();
-        let payload = packet.build(&mut self.builder);
-        let data_len_bin = u16::try_from(payload.len())
-            .expect("Payload can't be greater than a u16")
-            .to_be_bytes()
-            .to_vec();
-
-        // Join so we make sure everything gets written in the right order
-        let joined = [data_type_bin, data_len_bin, payload].concat();
-
-        self.stream.write_all(&joined)?;
+        self.stream
+            .write_all(&build_packet_payload(packet, &mut self.builder)?)?;
         self.stream.flush()?;
         Ok(())
     }
@@ -276,4 +286,23 @@ impl RLBotConnection {
             field_info: field_info.unwrap(),
         })
     }
+}
+
+#[derive(Error, Debug)]
+pub enum PacketBuildError {
+    #[error("Payload too large {0}, couldn't fit in u16")]
+    PayloadTooLarge(usize),
+}
+
+fn build_packet_payload(
+    packet: Packet,
+    builder: &mut planus::Builder,
+) -> Result<Vec<u8>, PacketBuildError> {
+    let data_type_bin = packet.data_type().to_be_bytes().to_vec();
+    let payload = packet.build(builder);
+    let data_len_bin = u16::try_from(payload.len())
+        .map_err(|_| PacketBuildError::PayloadTooLarge(payload.len()))?
+        .to_be_bytes()
+        .to_vec();
+    Ok([data_type_bin, data_len_bin, payload].concat())
 }

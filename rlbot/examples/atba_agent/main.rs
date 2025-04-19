@@ -2,11 +2,11 @@ use std::{f32::consts::PI, sync::Arc};
 
 use rlbot::{
     RLBotConnection,
-    agents::bot::{BotAgent, run_agents},
+    agents::{BotAgent, run_bot_agents},
     flat::{
         ControllableInfo, ControllerState, FieldInfo, GamePacket, MatchConfiguration, PlayerInput,
     },
-    util::{PacketQueue, RLBotEnvironment},
+    util::{AgentEnvironment, PacketQueue},
 };
 
 #[allow(dead_code)]
@@ -90,10 +90,10 @@ impl BotAgent for AtbaAgent {
 }
 
 fn main() {
-    let RLBotEnvironment {
+    let AgentEnvironment {
         server_addr,
         agent_id,
-    } = RLBotEnvironment::from_env();
+    } = AgentEnvironment::from_env();
     let agent_id = agent_id.unwrap_or_else(|| "rlbot/rust-example/atba_agent".into());
 
     println!("Connecting");
@@ -108,8 +108,8 @@ fn main() {
     // all of the bots in a team.
 
     // Blocking.
-    run_agents::<AtbaAgent>(agent_id.clone(), true, true, rlbot_connection)
-        .expect("run_agents crashed");
+    run_bot_agents::<AtbaAgent>(agent_id.clone(), true, true, rlbot_connection)
+        .expect("run_bot_agents crashed");
 
     println!("Agent(s) with agent_id `{agent_id}` exited nicely");
 }

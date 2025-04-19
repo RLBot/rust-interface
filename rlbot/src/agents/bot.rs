@@ -1,10 +1,6 @@
 use std::{mem, sync::Arc, thread};
 
-use crate::{
-    Packet, RLBotConnection, StartingInfo,
-    flat::*,
-    util::{PacketQueue, write_multiple_packets},
-};
+use crate::{Packet, RLBotConnection, StartingInfo, flat::*, util::PacketQueue};
 
 use super::AgentError;
 
@@ -33,7 +29,7 @@ pub trait BotAgent {
 /// # Panics
 ///
 /// Panics if a thread can't be spawned for each agent.
-pub fn run_agents<T: BotAgent>(
+pub fn run_bot_agents<T: BotAgent>(
     // TODO: Maybe pass a struct?
     agent_id: String,
     wants_ball_predictions: bool,
@@ -80,7 +76,7 @@ pub fn run_agents<T: BotAgent>(
                     controllable_info.index,
                 ))
                 .spawn(move || {
-                    run_agent::<T>(
+                    run_bot_agent::<T>(
                         incoming_recver,
                         controllable_team_info.team,
                         controllable_info,
@@ -106,8 +102,7 @@ pub fn run_agents<T: BotAgent>(
         }
     }
 
-    write_multiple_packets(
-        &mut connection,
+    connection.send_packets_enum(
         to_send
             .iter_mut()
             .flat_map(mem::take)
@@ -169,7 +164,7 @@ pub fn run_agents<T: BotAgent>(
                 }
             }
 
-            write_multiple_packets(&mut connection, to_send.iter_mut().flat_map(mem::take))?;
+            connection.send_packets_enum(to_send.iter_mut().flat_map(mem::take))?;
         }
     }
 
@@ -180,7 +175,7 @@ pub fn run_agents<T: BotAgent>(
     Ok(())
 }
 
-fn run_agent<T: BotAgent>(
+fn run_bot_agent<T: BotAgent>(
     incoming_recver: kanal::Receiver<Arc<Packet>>,
     team: u32,
     controllable_info: ControllableInfo,

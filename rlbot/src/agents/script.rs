@@ -2,15 +2,12 @@ use rlbot_flat::flat::{
     BallPrediction, ConnectionSettings, FieldInfo, GamePacket, MatchComm, MatchConfiguration,
 };
 
-use crate::{
-    Packet, RLBotConnection, StartingInfo,
-    util::{PacketQueue, write_multiple_packets},
-};
+use crate::{Packet, RLBotConnection, StartingInfo, util::PacketQueue};
 
 use super::AgentError;
 
 #[allow(unused_variables)]
-pub trait Script {
+pub trait ScriptAgent {
     fn new(
         agent_id: String,
         match_configuration: MatchConfiguration,
@@ -22,7 +19,7 @@ pub trait Script {
     fn on_ball_prediction(&mut self, ball_prediction: BallPrediction) {}
 }
 
-pub fn run_agent<T: Script>(
+pub fn run_script_agent<T: ScriptAgent>(
     agent_id: String,
     wants_ball_predictions: bool,
     wants_comms: bool,
@@ -50,7 +47,7 @@ pub fn run_agent<T: Script>(
     );
 
     outgoing_queue.push(Packet::InitComplete);
-    write_multiple_packets(&mut connection, outgoing_queue.empty().into_iter())?;
+    connection.send_packets_enum(outgoing_queue.empty().into_iter())?;
 
     let mut ball_prediction = None;
     let mut game_packet = None;
@@ -76,7 +73,7 @@ pub fn run_agent<T: Script>(
 
             script.tick(game_packet, &mut outgoing_queue);
 
-            write_multiple_packets(&mut connection, outgoing_queue.empty().into_iter())?;
+            connection.send_packets_enum(outgoing_queue.empty().into_iter())?;
         }
     }
 

@@ -3,15 +3,12 @@ use rlbot_flat::flat::{
     MatchConfiguration,
 };
 
-use crate::{
-    Packet, RLBotConnection, StartingInfo,
-    util::{PacketQueue, write_multiple_packets},
-};
+use crate::{Packet, RLBotConnection, StartingInfo, util::PacketQueue};
 
 use super::AgentError;
 
 #[allow(unused_variables)]
-pub trait HivemindBotAgent {
+pub trait HivemindAgent {
     fn new(
         controllable_team_info: ControllableTeamInfo,
         match_configuration: MatchConfiguration,
@@ -23,7 +20,7 @@ pub trait HivemindBotAgent {
     fn on_ball_prediction(&mut self, ball_prediction: BallPrediction) {}
 }
 
-pub fn run_agent<T: HivemindBotAgent>(
+pub fn run_hivemind_agent<T: HivemindAgent>(
     agent_id: String,
     wants_ball_predictions: bool,
     wants_comms: bool,
@@ -51,7 +48,7 @@ pub fn run_agent<T: HivemindBotAgent>(
     );
 
     outgoing_queue.push(Packet::InitComplete);
-    write_multiple_packets(&mut connection, outgoing_queue.empty().into_iter())?;
+    connection.send_packets_enum(outgoing_queue.empty().into_iter())?;
 
     let mut ball_prediction = None;
     let mut game_packet = None;
@@ -77,7 +74,7 @@ pub fn run_agent<T: HivemindBotAgent>(
 
             hivemind.tick(game_packet, &mut outgoing_queue);
 
-            write_multiple_packets(&mut connection, outgoing_queue.empty().into_iter())?;
+            connection.send_packets_enum(outgoing_queue.empty().into_iter())?;
         }
     }
 

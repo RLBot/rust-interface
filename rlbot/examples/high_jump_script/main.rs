@@ -1,11 +1,11 @@
 use rlbot::{
     RLBotConnection,
-    agents::script::{Script, run_agent},
+    agents::{ScriptAgent, run_script_agent},
     flat::{
         DesiredCarState, DesiredGameState, DesiredPhysics, FieldInfo, GamePacket,
         MatchConfiguration, MatchPhase, Vector3Partial,
     },
-    util::{PacketQueue, RLBotEnvironment},
+    util::{AgentEnvironment, PacketQueue},
 };
 
 #[allow(dead_code)]
@@ -15,7 +15,7 @@ struct MyScript {
     prev_jumps: Vec<bool>,
 }
 
-impl Script for MyScript {
+impl ScriptAgent for MyScript {
     fn new(
         agent_id: String,
         match_config: MatchConfiguration,
@@ -81,16 +81,16 @@ impl Script for MyScript {
 }
 
 fn main() {
-    let RLBotEnvironment {
+    let AgentEnvironment {
         server_addr,
         agent_id,
-    } = RLBotEnvironment::from_env();
+    } = AgentEnvironment::from_env();
     let agent_id = agent_id.unwrap_or_else(|| "rlbot/rust-example/high_jump_script".into());
     let rlbot_connection = RLBotConnection::new(&server_addr).expect("connection");
 
     // Blocking.
-    run_agent::<MyScript>(agent_id.clone(), true, true, rlbot_connection)
-        .expect("run_agent crashed");
+    run_script_agent::<MyScript>(agent_id.clone(), true, true, rlbot_connection)
+        .expect("run_script_agent crashed");
 
     println!("Script with agent_id `{agent_id}` exited nicely");
 }

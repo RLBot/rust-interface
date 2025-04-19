@@ -2,12 +2,12 @@ use std::f32::consts::PI;
 
 use rlbot::{
     RLBotConnection,
-    agents::hivemind::{HivemindBotAgent, run_agent},
+    agents::{HivemindAgent, run_hivemind_agent},
     flat::{
         ControllableTeamInfo, ControllerState, FieldInfo, GamePacket, MatchConfiguration,
         PlayerInput,
     },
-    util::{PacketQueue, RLBotEnvironment},
+    util::{AgentEnvironment, PacketQueue},
 };
 
 #[allow(dead_code)]
@@ -20,7 +20,7 @@ struct AtbaHivemind {
     field_info: FieldInfo,
 }
 
-impl HivemindBotAgent for AtbaHivemind {
+impl HivemindAgent for AtbaHivemind {
     fn new(
         controllable_team_info: ControllableTeamInfo,
         match_config: MatchConfiguration,
@@ -103,10 +103,10 @@ impl HivemindBotAgent for AtbaHivemind {
 }
 
 fn main() {
-    let RLBotEnvironment {
+    let AgentEnvironment {
         server_addr,
         agent_id,
-    } = RLBotEnvironment::from_env();
+    } = AgentEnvironment::from_env();
     let agent_id = agent_id.unwrap_or_else(|| "rlbot/rust-example/atba_hivemind".into());
 
     println!("Connecting");
@@ -121,8 +121,8 @@ fn main() {
     // all of the bots in a team.
 
     // Blocking.
-    run_agent::<AtbaHivemind>(agent_id.clone(), true, true, rlbot_connection)
-        .expect("run_hivemind crashed");
+    run_hivemind_agent::<AtbaHivemind>(agent_id.clone(), true, true, rlbot_connection)
+        .expect("run_hivemind_agent crashed");
 
     println!("Hivemind with agent_id `{agent_id}` exited nicely");
 }
