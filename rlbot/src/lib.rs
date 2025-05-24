@@ -13,7 +13,10 @@ pub mod util;
 #[cfg(feature = "glam")]
 pub use rlbot_flat::glam;
 
-pub use rlbot_flat::flat;
+pub mod flat {
+    pub use rlbot_flat::RLBOT_FLATBUFFERS_SCHEMA_REV;
+    pub use rlbot_flat::flat::*;
+}
 
 use flat::*;
 

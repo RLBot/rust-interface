@@ -1,5 +1,6 @@
 pub(crate) mod planus_flat;
 pub use planus;
+pub use planus_flat::RLBOT_FLATBUFFERS_SCHEMA_REV;
 pub use planus_flat::rlbot::flat;
 
 #[cfg(feature = "glam")]
