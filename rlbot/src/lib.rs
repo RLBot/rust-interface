@@ -19,8 +19,6 @@ use flat::*;
 
 #[derive(Error, Debug)]
 pub enum PacketParseError {
-    #[error("Invalid data type: {0}")]
-    InvalidDataType(u16),
     #[error("Unpacking flatbuffer failed")]
     InvalidFlatbuffer(#[from] planus::Error),
 }
@@ -37,149 +35,20 @@ pub enum RLBotError {
     InvalidAddrError(#[from] AddrParseError),
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub enum Packet {
-    None,
-    GamePacket(GamePacket),
-    FieldInfo(FieldInfo),
-    StartCommand(StartCommand),
-    MatchConfiguration(MatchConfiguration),
-    PlayerInput(PlayerInput),
-    DesiredGameState(DesiredGameState),
-    RenderGroup(RenderGroup),
-    RemoveRenderGroup(RemoveRenderGroup),
-    MatchComm(MatchComm),
-    BallPrediction(BallPrediction),
-    ConnectionSettings(ConnectionSettings),
-    StopCommand(StopCommand),
-    SetLoadout(SetLoadout),
-    InitComplete,
-    ControllableTeamInfo(ControllableTeamInfo),
+enum GenericMessage {
+    InterfaceMessage(InterfaceMessage),
+    CoreMessage(CoreMessage),
 }
 
-macro_rules! gen_impl_from_flat_packet {
-    ($($x:ident),+) => {
-        $(
-            impl From<$x> for Packet {
-                fn from(x: $x) -> Self {
-                    Packet::$x(x)
-                }
-            }
-        )+
-    };
+impl From<InterfaceMessage> for GenericMessage {
+    fn from(value: InterfaceMessage) -> Self {
+        GenericMessage::InterfaceMessage(value)
+    }
 }
-
-gen_impl_from_flat_packet!(
-    // None
-    GamePacket,
-    FieldInfo,
-    StartCommand,
-    MatchConfiguration,
-    PlayerInput,
-    DesiredGameState,
-    RenderGroup,
-    RemoveRenderGroup,
-    MatchComm,
-    BallPrediction,
-    ConnectionSettings,
-    StopCommand,
-    SetLoadout,
-    // InitComplete
-    ControllableTeamInfo
-);
-
-impl Packet {
-    #[must_use]
-    pub const fn data_type(&self) -> u16 {
-        match *self {
-            Self::None => 0,
-            Self::GamePacket(_) => 1,
-            Self::FieldInfo(_) => 2,
-            Self::StartCommand(_) => 3,
-            Self::MatchConfiguration(_) => 4,
-            Self::PlayerInput(_) => 5,
-            Self::DesiredGameState(_) => 6,
-            Self::RenderGroup(_) => 7,
-            Self::RemoveRenderGroup(_) => 8,
-            Self::MatchComm(_) => 9,
-            Self::BallPrediction(_) => 10,
-            Self::ConnectionSettings(_) => 11,
-            Self::StopCommand(_) => 12,
-            Self::SetLoadout(_) => 13,
-            Self::InitComplete => 14,
-            Self::ControllableTeamInfo(_) => 15,
-        }
-    }
-
-    pub fn build(self, builder: &mut planus::Builder) -> Vec<u8> {
-        // TODO: make this mess nicer
-        macro_rules! p {
-            ($($x:ident),+; $($y:ident),+) => {
-                match self {
-                    $(
-                        Self::$x => Vec::new(),
-                    )+
-                    $(
-                        Self::$y(x) => {
-                            builder.clear();
-                            builder.finish(x, None).to_vec()
-                        },
-                    )+
-                }
-            };
-        }
-
-        p!(
-            // Empty payload:
-            None, InitComplete;
-            // Flatbuffer payload:
-            GamePacket, FieldInfo, StartCommand, MatchConfiguration, PlayerInput,
-            DesiredGameState, RenderGroup, RemoveRenderGroup, MatchComm, BallPrediction,
-            ConnectionSettings, StopCommand, SetLoadout, ControllableTeamInfo
-        )
-    }
-
-    pub fn from_payload(data_type: u16, payload: &[u8]) -> Result<Self, PacketParseError> {
-        // TODO: make this mess nicer
-        macro_rules! p {
-            ($e:ident) => {
-                Ok(Self::$e)
-            };
-            ($e:ident, $x:ident) => {
-                Ok(Self::$e($x::read_as_root(payload)?.try_into().unwrap()))
-            };
-            ($($n:literal, $($x:ident),+);+) => {
-                match data_type {
-                    $(
-                        $n => p!(
-                            $($x),+
-                        ),
-                    )+
-                    _ => Err(PacketParseError::InvalidDataType(data_type)),
-                }
-            };
-
-        }
-
-        p!(
-            0, None;
-            1, GamePacket, GamePacketRef;
-            2, FieldInfo, FieldInfoRef;
-            3, StartCommand, StartCommandRef;
-            4, MatchConfiguration, MatchConfigurationRef;
-            5, PlayerInput, PlayerInputRef;
-            6, DesiredGameState, DesiredGameStateRef;
-            7, RenderGroup, RenderGroupRef;
-            8, RemoveRenderGroup, RemoveRenderGroupRef;
-            9, MatchComm, MatchCommRef;
-            10, BallPrediction, BallPredictionRef;
-            11, ConnectionSettings, ConnectionSettingsRef;
-            12, StopCommand, StopCommandRef;
-            13, SetLoadout, SetLoadoutRef;
-            14, InitComplete;
-            15, ControllableTeamInfo, ControllableTeamInfoRef
-        )
+impl From<CoreMessage> for GenericMessage {
+    fn from(value: CoreMessage) -> Self {
+        GenericMessage::CoreMessage(value)
     }
 }
 
@@ -198,12 +67,13 @@ pub struct RLBotConnection {
 impl RLBotConnection {
     pub(crate) fn send_packets_enum(
         &mut self,
-        packets: impl Iterator<Item = Packet>,
+        packets: impl Iterator<Item = InterfaceMessage>,
     ) -> Result<(), RLBotError> {
         let to_write = packets
             // convert Packet to Vec<u8> that RLBotServer can understand
             .flat_map(|x| {
-                build_packet_payload(x, &mut self.builder).expect("failed to build packet")
+                build_packet_payload(GenericMessage::from(x), &mut self.builder)
+                    .expect("failed to build packet")
             })
             .collect::<Vec<_>>();
 
@@ -213,32 +83,33 @@ impl RLBotConnection {
         Ok(())
     }
 
-    fn send_packet_enum(&mut self, packet: Packet) -> Result<(), RLBotError> {
+    fn send_packet_enum(&mut self, packet: InterfaceMessage) -> Result<(), RLBotError> {
         self.stream
             .write_all(&build_packet_payload(packet, &mut self.builder)?)?;
         self.stream.flush()?;
         Ok(())
     }
 
-    pub fn send_packet(&mut self, packet: impl Into<Packet>) -> Result<(), RLBotError> {
+    pub fn send_packet(&mut self, packet: impl Into<InterfaceMessage>) -> Result<(), RLBotError> {
         self.send_packet_enum(packet.into())
     }
 
-    pub fn recv_packet(&mut self) -> Result<Packet, RLBotError> {
-        let mut buf = [0u8; 4];
+    pub fn recv_packet(&mut self) -> Result<CoreMessage, RLBotError> {
+        let mut buf = [0u8; 2];
 
         self.stream.read_exact(&mut buf)?;
 
-        let data_type = u16::from_be_bytes([buf[0], buf[1]]);
-        let data_len = u16::from_be_bytes([buf[2], buf[3]]);
+        let data_len = u16::from_be_bytes(buf);
 
         let buf = &mut self.recv_buf[0..data_len as usize];
 
         self.stream.read_exact(buf)?;
 
-        let packet = Packet::from_payload(data_type, buf)?;
+        let packet_ref: CorePacketRef =
+            CorePacketRef::read_as_root(buf).map_err(PacketParseError::InvalidFlatbuffer)?;
+        let packet: CorePacket = packet_ref.try_into().unwrap();
 
-        Ok(packet)
+        Ok(packet.message)
     }
 
     pub fn set_nonblocking(&self, nonblocking: bool) -> Result<(), RLBotError> {
@@ -266,9 +137,9 @@ impl RLBotConnection {
         loop {
             let packet = self.recv_packet()?;
             match packet {
-                Packet::ControllableTeamInfo(x) => controllable_team_info = Some(x),
-                Packet::MatchConfiguration(x) => match_configuration = Some(x),
-                Packet::FieldInfo(x) => field_info = Some(x),
+                CoreMessage::ControllableTeamInfo(x) => controllable_team_info = Some(x),
+                CoreMessage::MatchConfiguration(x) => match_configuration = Some(x),
+                CoreMessage::FieldInfo(x) => field_info = Some(x),
                 _ => {}
             }
 
@@ -281,9 +152,9 @@ impl RLBotConnection {
         }
 
         Ok(StartingInfo {
-            controllable_team_info: controllable_team_info.unwrap(),
-            match_configuration: match_configuration.unwrap(),
-            field_info: field_info.unwrap(),
+            controllable_team_info: *controllable_team_info.unwrap(),
+            match_configuration: *match_configuration.unwrap(),
+            field_info: *field_info.unwrap(),
         })
     }
 }
@@ -295,14 +166,23 @@ pub enum PacketBuildError {
 }
 
 fn build_packet_payload(
-    packet: Packet,
+    packet: impl Into<GenericMessage>,
     builder: &mut planus::Builder,
 ) -> Result<Vec<u8>, PacketBuildError> {
-    let data_type_bin = packet.data_type().to_be_bytes().to_vec();
-    let payload = packet.build(builder);
+    builder.clear();
+    let payload = match packet.into() {
+        GenericMessage::InterfaceMessage(x) => {
+            let packet: InterfacePacket = x.into();
+            builder.finish(packet, None)
+        }
+        GenericMessage::CoreMessage(x) => {
+            let packet: CorePacket = x.into();
+            builder.finish(packet, None)
+        }
+    };
     let data_len_bin = u16::try_from(payload.len())
         .map_err(|_| PacketBuildError::PayloadTooLarge(payload.len()))?
         .to_be_bytes()
         .to_vec();
-    Ok([data_type_bin, data_len_bin, payload].concat())
+    Ok([data_len_bin, payload.to_vec()].concat())
 }

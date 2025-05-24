@@ -1,8 +1,9 @@
 use rlbot_flat::flat::{
-    BallPrediction, ConnectionSettings, FieldInfo, GamePacket, MatchComm, MatchConfiguration,
+    BallPrediction, ConnectionSettings, CoreMessage, FieldInfo, GamePacket, InitComplete,
+    MatchComm, MatchConfiguration,
 };
 
-use crate::{Packet, RLBotConnection, StartingInfo, util::PacketQueue};
+use crate::{RLBotConnection, StartingInfo, util::PacketQueue};
 
 use super::AgentError;
 
@@ -46,7 +47,7 @@ pub fn run_script_agent<T: ScriptAgent>(
         &mut outgoing_queue,
     );
 
-    outgoing_queue.push(Packet::InitComplete);
+    outgoing_queue.push(InitComplete {});
     connection.send_packets_enum(outgoing_queue.empty().into_iter())?;
 
     let mut ball_prediction = None;
@@ -55,12 +56,12 @@ pub fn run_script_agent<T: ScriptAgent>(
         connection.set_nonblocking(true)?;
         while let Ok(packet) = connection.recv_packet() {
             match packet {
-                Packet::None => break 'main_loop,
-                Packet::MatchComm(match_comm) => {
-                    script.on_match_comm(match_comm, &mut outgoing_queue);
+                CoreMessage::DisconnectSignal(_) => break 'main_loop,
+                CoreMessage::MatchComm(match_comm) => {
+                    script.on_match_comm(*match_comm, &mut outgoing_queue);
                 }
-                Packet::BallPrediction(ball_pred) => ball_prediction = Some(ball_pred),
-                Packet::GamePacket(gp) => game_packet = Some(gp),
+                CoreMessage::BallPrediction(ball_pred) => ball_prediction = Some(ball_pred),
+                CoreMessage::GamePacket(gp) => game_packet = Some(gp),
                 _ => panic!("Unexpected packet: {packet:?}"),
             }
         }
@@ -68,10 +69,10 @@ pub fn run_script_agent<T: ScriptAgent>(
 
         if let Some(game_packet) = game_packet.take() {
             if let Some(ball_prediction) = ball_prediction.take() {
-                script.on_ball_prediction(ball_prediction);
+                script.on_ball_prediction(*ball_prediction);
             }
 
-            script.tick(game_packet, &mut outgoing_queue);
+            script.tick(*game_packet, &mut outgoing_queue);
 
             connection.send_packets_enum(outgoing_queue.empty().into_iter())?;
         }

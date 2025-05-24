@@ -1,6 +1,6 @@
 use std::{mem, sync::Arc, thread};
 
-use crate::{Packet, RLBotConnection, StartingInfo, flat::*, util::PacketQueue};
+use crate::{RLBotConnection, StartingInfo, flat::*, util::PacketQueue};
 
 use super::AgentError;
 
@@ -60,9 +60,9 @@ pub fn run_bot_agents<T: BotAgent>(
     let num_threads = controllable_team_info.controllables.len();
     let mut threads = Vec::with_capacity(num_threads);
 
-    let (outgoing_sender, outgoing_recver) = kanal::unbounded::<Vec<Packet>>();
+    let (outgoing_sender, outgoing_recver) = kanal::unbounded::<Vec<InterfaceMessage>>();
     for (i, controllable_info) in controllable_team_info.controllables.into_iter().enumerate() {
-        let (incoming_sender, incoming_recver) = kanal::unbounded::<Arc<Packet>>();
+        let (incoming_sender, incoming_recver) = kanal::unbounded::<Arc<CoreMessage>>();
         let match_configuration = match_configuration.clone();
         let field_info = field_info.clone();
 
@@ -93,7 +93,7 @@ pub fn run_bot_agents<T: BotAgent>(
     // which we rely on for clean exiting
     drop(outgoing_sender);
 
-    let mut to_send: Vec<Vec<Packet>> = vec![Vec::new(); num_threads];
+    let mut to_send: Vec<Vec<InterfaceMessage>> = vec![Vec::new(); num_threads];
     for reserved_packet_spot in &mut to_send {
         if let Ok(messages) = outgoing_recver.recv() {
             *reserved_packet_spot = messages;
@@ -106,7 +106,7 @@ pub fn run_bot_agents<T: BotAgent>(
         to_send
             .iter_mut()
             .flat_map(mem::take)
-            .chain([Packet::InitComplete]),
+            .chain([InitComplete {}.into()]),
     )?;
 
     // Main loop, broadcast packet to all of the bots, then wait for all of the outgoing vecs
@@ -118,7 +118,7 @@ pub fn run_bot_agents<T: BotAgent>(
             let packet = Arc::new(packet);
 
             match &*packet {
-                Packet::None => {
+                CoreMessage::DisconnectSignal(_) => {
                     for (incoming_sender, _) in &threads {
                         if incoming_sender.send(packet.clone()).is_err() {
                             return Err(AgentError::AgentPanic);
@@ -127,15 +127,15 @@ pub fn run_bot_agents<T: BotAgent>(
 
                     break 'main_loop;
                 }
-                Packet::MatchComm(_) => {
+                CoreMessage::MatchComm(_) => {
                     for (incoming_sender, _) in &threads {
                         if incoming_sender.send(packet.clone()).is_err() {
                             return Err(AgentError::AgentPanic);
                         }
                     }
                 }
-                Packet::BallPrediction(_) => ball_prediction = Some(packet),
-                Packet::GamePacket(_) => game_packet = Some(packet),
+                CoreMessage::BallPrediction(_) => ball_prediction = Some(packet),
+                CoreMessage::GamePacket(_) => game_packet = Some(packet),
                 _ => panic!("Unexpected packet: {packet:?}"),
             }
         }
@@ -176,12 +176,12 @@ pub fn run_bot_agents<T: BotAgent>(
 }
 
 fn run_bot_agent<T: BotAgent>(
-    incoming_recver: kanal::Receiver<Arc<Packet>>,
+    incoming_recver: kanal::Receiver<Arc<CoreMessage>>,
     team: u32,
     controllable_info: ControllableInfo,
     match_configuration: Arc<MatchConfiguration>,
     field_info: Arc<FieldInfo>,
-    outgoing_sender: kanal::Sender<Vec<Packet>>,
+    outgoing_sender: kanal::Sender<Vec<InterfaceMessage>>,
 ) {
     let mut outgoing_queue_local = PacketQueue::default();
     let mut bot = T::new(
@@ -202,18 +202,18 @@ fn run_bot_agent<T: BotAgent>(
         };
 
         match &*packet {
-            Packet::None => break,
-            Packet::GamePacket(x) => bot.tick(x, &mut outgoing_queue_local),
-            Packet::MatchComm(x) => {
+            CoreMessage::DisconnectSignal(_) => break,
+            CoreMessage::GamePacket(x) => bot.tick(x, &mut outgoing_queue_local),
+            CoreMessage::MatchComm(x) => {
                 bot.on_match_comm(x, &mut outgoing_queue_local);
             }
-            Packet::BallPrediction(x) => {
+            CoreMessage::BallPrediction(x) => {
                 bot.on_ball_prediction(x);
             }
             _ => unreachable!(), /* The rest of the packets are only client -> server */
         }
 
-        if matches!(*packet, Packet::GamePacket(_)) {
+        if matches!(*packet, CoreMessage::GamePacket(_)) {
             outgoing_sender
                 .send(outgoing_queue_local.empty())
                 .expect("Couldn't send outgoing");

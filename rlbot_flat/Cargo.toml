@@ -12,6 +12,7 @@ glam = { version = "0.30.0", optional = true }
 [build-dependencies]
 planus-translation = { git = "https://github.com/swz-git/planus", rev = "a0b1fbf" }
 planus-codegen = { git = "https://github.com/swz-git/planus", rev = "a0b1fbf" }
+planus-types = { git = "https://github.com/swz-git/planus", rev = "a0b1fbf" }
 eyre = "0.6.12"
 
 [features]

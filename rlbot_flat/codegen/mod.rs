@@ -1,4 +1,5 @@
-use eyre::{Context, anyhow};
+use eyre::{ContextCompat, anyhow};
+use planus_types::intermediate::{AbsolutePath, Declaration, DeclarationKind};
 use std::{
     fs,
     io::Write,
@@ -6,7 +7,7 @@ use std::{
     time::Instant,
 };
 
-const SCHEMA_DIR: &str = "../flatbuffers-schema";
+const SCHEMA_DIR: &str = "../flatbuffers-schema/schema";
 const OUT_FILE: &str = "./src/planus_flat.rs";
 
 fn get_git_rev(dir: impl AsRef<Path>) -> Option<String> {
@@ -26,15 +27,19 @@ pub fn main() -> eyre::Result<()> {
         Err(anyhow!("Couldn't find flatbuffers schema folder"))?;
     }
 
-    let cleaned_files = read_and_clean_schema_files(SCHEMA_DIR)?;
-
-    let declarations = planus_translation::translate_files_from_memory_with_options(
-        &cleaned_files,
-        Default::default(),
-    );
+    let rlbot_fbs_path = PathBuf::from(SCHEMA_DIR).join("rlbot.fbs");
+    let declarations = planus_translation::translate_files(&[rlbot_fbs_path.as_path()])
+        .context("planus translation failed")?;
 
     let generated_planus = // No idea why planus renames RLBot to RlBot but this fixes it
         planus_codegen::generate_rust(&declarations)?.replace("RlBot", "RLBot");
+
+    let generated_custom = generate_custom(declarations.declarations.iter().filter(|x| {
+        x.0.0
+            .last()
+            .map(|s| s.ends_with("InterfaceMessage") || s.ends_with("CoreMessage"))
+            .unwrap_or(false)
+    }))?;
 
     let now = Instant::now();
     let time_taken = format!(
@@ -45,6 +50,8 @@ pub fn main() -> eyre::Result<()> {
 
     let raw_out = &[
         time_taken.as_bytes(),
+        "////////// CUSTOM GENERATED //////////\n".as_bytes(),
+        generated_custom.as_bytes(),
         "////////// PLANUS GENERATED //////////\n".as_bytes(),
         generated_planus.as_bytes(),
     ]
@@ -55,45 +62,34 @@ pub fn main() -> eyre::Result<()> {
     Ok(())
 }
 
-fn read_and_clean_schema_files(
-    schema_dir: impl AsRef<Path>,
-) -> eyre::Result<Vec<(PathBuf, String)>> {
-    let fbs_file_paths: Vec<_> = fs::read_dir(schema_dir)
-        .context("failed to read schema dir")?
-        .map(|x| x.unwrap().path())
-        .filter(|x| x.is_file() && x.extension().map(|x| x.to_str()) == Some(Some("fbs")))
-        .collect();
+/// Generate From<EnumVariant> for enum types.
+fn generate_custom<'a>(
+    enum_decls: impl IntoIterator<Item = (&'a AbsolutePath, &'a Declaration)>,
+) -> eyre::Result<String> {
+    let mut output = String::new();
+    for (decl_path, decl) in enum_decls {
+        let DeclarationKind::Union(u) = &decl.kind else {
+            return Err(eyre::eyre!("DeclarationKind wasn't union"));
+        };
+        output.push_str(&format!(
+            "// impl From<VARIANT> for {}\n",
+            decl_path.0.join("::")
+        ));
 
-    let include_all_str: String = fbs_file_paths
-        .iter()
-        // File paths to names
-        .map(|x| x.file_name().unwrap().to_str().unwrap().to_owned())
-        // Include every file name
-        .map(|x| format!("include \"{x}\";"))
-        .collect();
-
-    Ok(fbs_file_paths
-        .into_iter()
-        .map(|fbs_file_path| {
-            let mut contents = fs::read_to_string(&fbs_file_path).expect("failed to read file");
-
-            // planus doesn't support multiple root_types
-            // removing them doesn't seem to do much
-            contents = contents.replace("root_type", "// root_type");
-
-            // comment all existing includes
-            contents = contents.replace("include \"", "// include \"");
-
-            // include all files (since we're removing root_types the root_types aren't auto-included)
-            contents = include_all_str.clone() + &contents;
-
-            (
-                fbs_file_path
-                    .strip_prefix(SCHEMA_DIR)
-                    .expect("failed to strip SCHEMA_DIR prefix from file path")
-                    .to_owned(),
-                contents,
-            )
-        })
-        .collect())
+        for variant in u.variants.keys() {
+            let from_t = [&decl_path.0[..decl_path.0.len() - 1], &[variant.clone()]]
+                .concat()
+                .join("::");
+            let for_t = decl_path.0.join("::");
+            #[rustfmt::skip]
+            output.push_str(&format!(
+                "impl From<{from_t}> for {for_t} {{\
+                    fn from(value: {from_t}) -> Self {{\
+                        Self::{variant}(::std::boxed::Box::new(value))\
+                    }}\
+                }}\n", // /*{decl_path:#?}*/\n/*{decl:#?}*/
+            ));
+        }
+    }
+    Ok(output)
 }

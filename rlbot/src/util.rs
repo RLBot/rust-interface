@@ -1,6 +1,6 @@
 use std::{env, mem};
 
-use crate::Packet;
+use rlbot_flat::flat::InterfaceMessage;
 
 pub struct AgentEnvironment {
     /// Will fallback to 127.0.0.1:23234
@@ -32,7 +32,7 @@ impl AgentEnvironment {
 
 /// A queue of packets to be sent to RLBotServer
 pub struct PacketQueue {
-    internal_queue: Vec<Packet>,
+    internal_queue: Vec<InterfaceMessage>,
 }
 
 impl Default for PacketQueue {
@@ -49,11 +49,11 @@ impl PacketQueue {
         }
     }
 
-    pub fn push(&mut self, packet: impl Into<Packet>) {
+    pub fn push(&mut self, packet: impl Into<InterfaceMessage>) {
         self.internal_queue.push(packet.into());
     }
 
-    pub(crate) fn empty(&mut self) -> Vec<Packet> {
+    pub(crate) fn empty(&mut self) -> Vec<InterfaceMessage> {
         mem::take(&mut self.internal_queue)
     }
 }

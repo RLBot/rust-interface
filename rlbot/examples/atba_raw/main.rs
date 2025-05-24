@@ -1,8 +1,8 @@
 use std::f32::consts::PI;
 
 use rlbot::{
-    Packet, RLBotConnection,
-    flat::{ConnectionSettings, ControllerState, PlayerInput},
+    RLBotConnection,
+    flat::{ConnectionSettings, ControllerState, CoreMessage, InitComplete, PlayerInput},
     util::AgentEnvironment,
 };
 
@@ -31,7 +31,7 @@ fn main() {
     // Wait for ControllableTeamInfo to know which indices we control
     let controllable_team_info = loop {
         let packet = rlbot_connection.recv_packet().unwrap();
-        if let Packet::ControllableTeamInfo(x) = packet {
+        if let CoreMessage::ControllableTeamInfo(x) = packet {
             break x;
         }
 
@@ -48,10 +48,10 @@ fn main() {
         .first()
         .expect("controllables.len() = 1");
 
-    rlbot_connection.send_packet(Packet::InitComplete).unwrap();
+    rlbot_connection.send_packet(InitComplete {}).unwrap();
 
     loop {
-        let Packet::GamePacket(game_packet) = packets_to_process
+        let CoreMessage::GamePacket(game_packet) = packets_to_process
             .pop()
             .unwrap_or_else(|| rlbot_connection.recv_packet().unwrap())
         else {
