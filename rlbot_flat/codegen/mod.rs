@@ -1,5 +1,8 @@
 use eyre::{ContextCompat, anyhow};
-use planus_types::intermediate::{AbsolutePath, Declaration, DeclarationKind};
+use planus_types::{
+    ast::Docstrings,
+    intermediate::{AbsolutePath, Declaration, DeclarationKind, Declarations},
+};
 use std::{
     fs,
     io::Write,
@@ -28,8 +31,20 @@ pub fn main() -> eyre::Result<()> {
     }
 
     let rlbot_fbs_path = PathBuf::from(SCHEMA_DIR).join("rlbot.fbs");
-    let declarations = planus_translation::translate_files(&[rlbot_fbs_path.as_path()])
+    let mut declarations = planus_translation::translate_files(&[rlbot_fbs_path.as_path()])
         .context("planus translation failed")?;
+
+    // Replace all links in docstrings with <link>
+    for docstring in docstrings_deep_iter_mut(&mut declarations) {
+        for word in split_whitespace_mut(docstring) {
+            // Check if the word is a URL
+            if let Ok(url) = fluent_uri::Uri::parse(word.as_str())
+                && (url.scheme().as_str() == "http" || url.scheme().as_str() == "https")
+            {
+                *word = format!("<{word}>");
+            }
+        }
+    }
 
     let generated_planus = // No idea why planus renames RLBot to RlBot but this fixes it
         planus_codegen::generate_rust(&declarations)?.replace("RlBot", "RLBot");
@@ -61,6 +76,58 @@ pub fn main() -> eyre::Result<()> {
     fs::File::create(OUT_FILE)?.write_all(raw_out)?;
 
     Ok(())
+}
+
+fn split_whitespace_mut(s: &mut String) -> impl Iterator<Item = &mut String> {
+    let v = unsafe { s.as_mut_vec() };
+    v.split_mut(|x| x.is_ascii_whitespace())
+        .filter(|x| x.len() != 0)
+        .map(|x| unsafe { &mut *(std::str::from_utf8_mut(x).unwrap() as *mut str as *mut String) })
+}
+
+fn docstrings_iter_mut(d: &mut Docstrings) -> impl Iterator<Item = &mut String> {
+    d.docstrings.iter_mut().map(|x| &mut x.value)
+}
+
+/// Returns an iterator over all docstrings in declarations
+fn docstrings_deep_iter_mut(declarations: &mut Declarations) -> impl Iterator<Item = &mut String> {
+    // Top 10 most beautiful code OAT.
+    declarations
+        .declarations
+        .iter_mut()
+        .map(|(_, decl)| {
+            docstrings_iter_mut(&mut decl.docstrings).chain({
+                let it: Box<dyn Iterator<Item = &mut String>> = match &mut decl.kind {
+                    DeclarationKind::Table(t) => Box::new(
+                        t.fields
+                            .iter_mut()
+                            .map(|(_, field)| docstrings_iter_mut(&mut field.docstrings))
+                            .flatten(),
+                    ),
+                    DeclarationKind::Struct(s) => Box::new(
+                        s.fields
+                            .iter_mut()
+                            .map(|(_, field)| docstrings_iter_mut(&mut field.docstrings))
+                            .flatten(),
+                    ),
+                    DeclarationKind::Enum(e) => Box::new(
+                        e.variants
+                            .iter_mut()
+                            .map(|(_, variant)| docstrings_iter_mut(&mut variant.docstrings))
+                            .flatten(),
+                    ),
+                    DeclarationKind::Union(u) => Box::new(
+                        u.variants
+                            .iter_mut()
+                            .map(|(_, variant)| docstrings_iter_mut(&mut variant.docstrings))
+                            .flatten(),
+                    ),
+                    DeclarationKind::RpcService(_) => unimplemented!("RpcService"),
+                };
+                it
+            })
+        })
+        .flatten()
 }
 
 /// Generate From<EnumVariant> for enum types.

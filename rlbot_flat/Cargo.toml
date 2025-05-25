@@ -14,6 +14,7 @@ planus-translation = { git = "https://github.com/swz-git/planus", rev = "a0b1fbf
 planus-codegen = { git = "https://github.com/swz-git/planus", rev = "a0b1fbf" }
 planus-types = { git = "https://github.com/swz-git/planus", rev = "a0b1fbf" }
 eyre = "0.6.12"
+fluent-uri = "0.3.2"
 
 [features]
 default = ["glam"]
