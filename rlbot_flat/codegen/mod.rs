@@ -36,13 +36,28 @@ pub fn main() -> eyre::Result<()> {
 
     // Replace all links in docstrings with <link>
     for docstring in docstrings_deep_iter_mut(&mut declarations) {
-        for word in split_whitespace_mut(docstring) {
-            // Check if the word is a URL
-            if let Ok(url) = fluent_uri::Uri::parse(word.as_str())
-                && (url.scheme().as_str() == "http" || url.scheme().as_str() == "https")
+        let mut start = 0;
+        while start < docstring.len() {
+            let end = {
+                let (mut ch_iter, mut i_iter) = (docstring[start..].chars(), start..);
+                loop {
+                    let next = ch_iter.next();
+                    if let Some(ch) = next
+                        && !ch.is_whitespace()
+                    {
+                        i_iter.next();
+                        continue;
+                    }
+                    break i_iter.next().unwrap();
+                }
+            };
+            if let Ok(uri) = fluent_uri::Uri::parse(&docstring[start..end])
+                && (uri.scheme().as_str() == "http" || uri.scheme().as_str() == "https")
             {
-                *word = format!("<{word}>");
+                docstring.insert(start, '<');
+                docstring.insert(end + 1, '>');
             }
+            start = end + 1;
         }
     }
 
@@ -76,13 +91,6 @@ pub fn main() -> eyre::Result<()> {
     fs::File::create(OUT_FILE)?.write_all(raw_out)?;
 
     Ok(())
-}
-
-fn split_whitespace_mut(s: &mut String) -> impl Iterator<Item = &mut String> {
-    let v = unsafe { s.as_mut_vec() };
-    v.split_mut(|x| x.is_ascii_whitespace())
-        .filter(|x| x.len() != 0)
-        .map(|x| unsafe { &mut *(std::str::from_utf8_mut(x).unwrap() as *mut str as *mut String) })
 }
 
 fn docstrings_iter_mut(d: &mut Docstrings) -> impl Iterator<Item = &mut String> {

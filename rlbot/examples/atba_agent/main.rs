@@ -4,7 +4,8 @@ use rlbot::{
     RLBotConnection,
     agents::{BotAgent, run_bot_agents},
     flat::{
-        ControllableInfo, ControllerState, FieldInfo, GamePacket, MatchConfiguration, PlayerInput,
+        ControllableInfo, ControllerState, FieldInfo, GamePacket, MatchConfiguration, PlayerClass,
+        PlayerInput,
     },
     util::{AgentEnvironment, PacketQueue},
 };
@@ -12,7 +13,7 @@ use rlbot::{
 #[allow(dead_code)]
 struct AtbaAgent {
     index: u32,
-    spawn_id: i32,
+    player_id: i32,
     team: u32,
     name: String,
     match_config: Arc<MatchConfiguration>,
@@ -30,18 +31,20 @@ impl BotAgent for AtbaAgent {
         let name = match_config
             .player_configurations
             .iter()
-            .find_map(|player| {
-                if player.spawn_id == controllable_info.spawn_id {
-                    Some(player.name.clone())
+            .find(|player| player.player_id == controllable_info.identifier)
+            .map(|player| {
+                if let PlayerClass::CustomBot(custombot) = &player.variety {
+                    &custombot.name
                 } else {
-                    None
+                    unreachable!("We cannot be controlling anything other a custombot")
                 }
             })
-            .unwrap();
+            .unwrap()
+            .clone();
 
         Self {
             index: controllable_info.index,
-            spawn_id: controllable_info.spawn_id,
+            player_id: controllable_info.identifier,
             team,
             name,
             match_config,

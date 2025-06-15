@@ -5,7 +5,7 @@ use rlbot::{
     agents::{HivemindAgent, run_hivemind_agent},
     flat::{
         ControllableTeamInfo, ControllerState, FieldInfo, GamePacket, MatchConfiguration,
-        PlayerInput,
+        PlayerClass, PlayerInput,
     },
     util::{AgentEnvironment, PacketQueue},
 };
@@ -13,7 +13,7 @@ use rlbot::{
 #[allow(dead_code)]
 struct AtbaHivemind {
     indices: Vec<u32>,
-    spawn_ids: Vec<i32>,
+    player_ids: Vec<i32>,
     team: u32,
     names: Vec<String>,
     match_config: MatchConfiguration,
@@ -30,29 +30,31 @@ impl HivemindAgent for AtbaHivemind {
         let names = match_config
             .player_configurations
             .iter()
-            .filter_map(|player| {
+            .filter(|pconf| {
                 controllable_team_info
                     .controllables
                     .iter()
-                    .find_map(|controllable| {
-                        if controllable.spawn_id == player.spawn_id {
-                            Some(player.name.clone())
-                        } else {
-                            None
-                        }
-                    })
+                    .find(|controllable| controllable.identifier == pconf.player_id)
+                    .is_some()
+            })
+            .map(|player| {
+                if let PlayerClass::CustomBot(custombot) = &player.variety {
+                    custombot.name.clone()
+                } else {
+                    unreachable!("We cannot be controlling anything other a custombot")
+                }
             })
             .collect();
 
-        let (indices, spawn_ids) = controllable_team_info
+        let (indices, player_ids) = controllable_team_info
             .controllables
             .iter()
-            .map(|controllable| (controllable.index, controllable.spawn_id))
+            .map(|controllable| (controllable.index, controllable.identifier))
             .unzip();
 
         Self {
             indices,
-            spawn_ids,
+            player_ids,
             team: controllable_team_info.team,
             names,
             match_config,
