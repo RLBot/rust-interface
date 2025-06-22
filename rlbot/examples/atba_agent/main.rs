@@ -9,8 +9,6 @@ use rlbot::{
     },
     util::{AgentEnvironment, PacketQueue},
 };
-use rlbot::state_builder::DesiredStateBuilder;
-use rlbot_flat::flat::{DesiredGameStateBuilder, Vector3};
 
 #[allow(dead_code)]
 struct AtbaAgent {

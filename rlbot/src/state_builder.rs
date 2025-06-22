@@ -1,7 +1,10 @@
-use rlbot_flat::flat::{DesiredBallState, DesiredCarState, DesiredGameState, DesiredMatchInfo, Rotator, RotatorPartial, Vector3, Vector3Partial};
+use rlbot_flat::flat::{
+    DesiredBallState, DesiredCarState, DesiredGameState, DesiredMatchInfo, Rotator, RotatorPartial,
+    Vector3, Vector3Partial,
+};
 
 /// Utility for easy construction of [DesiredGameState]s using builder patterns.
-/// 
+///
 /// Example:
 /// ```example
 /// let dgs: DesiredGameState = DesiredStateBuilder::new()
@@ -16,25 +19,34 @@ use rlbot_flat::flat::{DesiredBallState, DesiredCarState, DesiredGameState, Desi
 /// ```
 #[derive(Default, Debug, Clone, PartialEq, PartialOrd)]
 pub struct DesiredStateBuilder {
-    state: DesiredGameState
+    state: DesiredGameState,
 }
 
 #[allow(dead_code)]
 impl DesiredStateBuilder {
     pub fn new() -> Self {
         Self {
-            state: DesiredGameState::default()
+            state: DesiredGameState::default(),
         }
     }
 
     /// Modify the desired match info.
-    pub fn match_info(mut self, build: impl FnOnce(DesiredMatchInfoBuilder) -> DesiredMatchInfoBuilder) -> Self {
-        build(DesiredMatchInfoBuilder::new(&mut self.state.match_info.get_or_insert_default()));
+    pub fn match_info(
+        mut self,
+        build: impl FnOnce(DesiredMatchInfoBuilder) -> DesiredMatchInfoBuilder,
+    ) -> Self {
+        build(DesiredMatchInfoBuilder::new(
+            &mut self.state.match_info.get_or_insert_default(),
+        ));
         self
     }
 
     /// Modify the desired ball at the given index.
-    pub fn ball(mut self, index: usize, build: impl FnOnce(DesiredBallBuilder) -> DesiredBallBuilder) -> Self {
+    pub fn ball(
+        mut self,
+        index: usize,
+        build: impl FnOnce(DesiredBallBuilder) -> DesiredBallBuilder,
+    ) -> Self {
         while self.state.ball_states.len() <= index {
             self.state.ball_states.push(Default::default());
         }
@@ -43,7 +55,11 @@ impl DesiredStateBuilder {
     }
 
     /// Modify the desired car at the given index.
-    pub fn car(mut self, index: usize, build: impl FnOnce(DesiredCarBuilder) -> DesiredCarBuilder) -> Self {
+    pub fn car(
+        mut self,
+        index: usize,
+        build: impl FnOnce(DesiredCarBuilder) -> DesiredCarBuilder,
+    ) -> Self {
         while self.state.car_states.len() <= index {
             self.state.car_states.push(Default::default());
         }
@@ -66,9 +82,7 @@ pub struct DesiredMatchInfoBuilder<'a> {
 #[allow(dead_code)]
 impl<'a> DesiredMatchInfoBuilder<'a> {
     pub fn new(info: &'a mut DesiredMatchInfo) -> Self {
-        Self {
-            info
-        }
+        Self { info }
     }
 
     /// Set the desired world gravity z.
@@ -93,9 +107,7 @@ pub struct DesiredCarBuilder<'a> {
 #[allow(dead_code)]
 impl<'a> DesiredCarBuilder<'a> {
     pub fn new(car: &'a mut DesiredCarState) -> Self {
-        Self {
-            car
-        }
+        Self { car }
     }
 
     /// Set the boost amount of the desired car.
@@ -107,100 +119,200 @@ impl<'a> DesiredCarBuilder<'a> {
     /// Set the location of the desired car.
     pub fn location(self, loc: impl Into<Vector3>) -> Self {
         let loc: Vector3Partial = loc.into().into();
-        self.car.physics.get_or_insert_default().location.replace(loc.into());
+        self.car
+            .physics
+            .get_or_insert_default()
+            .location
+            .replace(loc.into());
         self
     }
 
     /// Set the location x value of the desired car.
     pub fn location_x(self, x: f32) -> Self {
-        self.car.physics.get_or_insert_default().location.get_or_insert_default().x.get_or_insert_default().val = x;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .location
+            .get_or_insert_default()
+            .x
+            .get_or_insert_default()
+            .val = x;
         self
     }
 
     /// Set the location y value of the desired car.
     pub fn location_y(self, y: f32) -> Self {
-        self.car.physics.get_or_insert_default().location.get_or_insert_default().y.get_or_insert_default().val = y;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .location
+            .get_or_insert_default()
+            .y
+            .get_or_insert_default()
+            .val = y;
         self
     }
 
     /// Set the location z value of the desired car.
     pub fn location_z(self, z: f32) -> Self {
-        self.car.physics.get_or_insert_default().location.get_or_insert_default().z.get_or_insert_default().val = z;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .location
+            .get_or_insert_default()
+            .z
+            .get_or_insert_default()
+            .val = z;
         self
     }
 
     /// Set the velocity of the desired car.
     pub fn velocity(self, vel: impl Into<Vector3>) -> Self {
         let vel: Vector3Partial = vel.into().into();
-        self.car.physics.get_or_insert_default().velocity.replace(vel.into());
+        self.car
+            .physics
+            .get_or_insert_default()
+            .velocity
+            .replace(vel.into());
         self
     }
 
     /// Set the velocity x value of the desired car.
     pub fn velocity_x(self, x: f32) -> Self {
-        self.car.physics.get_or_insert_default().velocity.get_or_insert_default().x.get_or_insert_default().val = x;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .velocity
+            .get_or_insert_default()
+            .x
+            .get_or_insert_default()
+            .val = x;
         self
     }
 
     /// Set the velocity y value of the desired car.
     pub fn velocity_y(self, y: f32) -> Self {
-        self.car.physics.get_or_insert_default().velocity.get_or_insert_default().y.get_or_insert_default().val = y;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .velocity
+            .get_or_insert_default()
+            .y
+            .get_or_insert_default()
+            .val = y;
         self
     }
 
     /// Set the velocity z value of the desired car.
     pub fn velocity_z(self, z: f32) -> Self {
-        self.car.physics.get_or_insert_default().velocity.get_or_insert_default().z.get_or_insert_default().val = z;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .velocity
+            .get_or_insert_default()
+            .z
+            .get_or_insert_default()
+            .val = z;
         self
     }
 
     /// Set the rotation of the desired car.
     pub fn rotation(self, rot: impl Into<Rotator>) -> Self {
         let rot: RotatorPartial = rot.into().into();
-        self.car.physics.get_or_insert_default().rotation.replace(rot.into());
+        self.car
+            .physics
+            .get_or_insert_default()
+            .rotation
+            .replace(rot.into());
         self
     }
 
     /// Set the rotation pitch of the desired car.
     pub fn rotation_pitch(self, pitch: f32) -> Self {
-        self.car.physics.get_or_insert_default().rotation.get_or_insert_default().pitch.get_or_insert_default().val = pitch;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .rotation
+            .get_or_insert_default()
+            .pitch
+            .get_or_insert_default()
+            .val = pitch;
         self
     }
 
     /// Set the rotation yaw of the desired car.
     pub fn rotation_yaw(self, yaw: f32) -> Self {
-        self.car.physics.get_or_insert_default().rotation.get_or_insert_default().yaw.get_or_insert_default().val = yaw;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .rotation
+            .get_or_insert_default()
+            .yaw
+            .get_or_insert_default()
+            .val = yaw;
         self
     }
 
     /// Set the rotation roll of the desired car.
     pub fn rotation_roll(self, roll: f32) -> Self {
-        self.car.physics.get_or_insert_default().rotation.get_or_insert_default().roll.get_or_insert_default().val = roll;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .rotation
+            .get_or_insert_default()
+            .roll
+            .get_or_insert_default()
+            .val = roll;
         self
     }
 
     /// Set the angular velocity of the desired car.
     pub fn angular_velocity(self, ang_vel: impl Into<Vector3>) -> Self {
         let ang_vel: Vector3Partial = ang_vel.into().into();
-        self.car.physics.get_or_insert_default().angular_velocity.replace(ang_vel.into());
+        self.car
+            .physics
+            .get_or_insert_default()
+            .angular_velocity
+            .replace(ang_vel.into());
         self
     }
 
     /// Set the angular velocity x value of the desired car.
     pub fn angular_velocity_x(self, x: f32) -> Self {
-        self.car.physics.get_or_insert_default().angular_velocity.get_or_insert_default().x.get_or_insert_default().val = x;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .angular_velocity
+            .get_or_insert_default()
+            .x
+            .get_or_insert_default()
+            .val = x;
         self
     }
 
     /// Set the angular velocity y value of the desired car.
     pub fn angular_velocity_y(self, y: f32) -> Self {
-        self.car.physics.get_or_insert_default().angular_velocity.get_or_insert_default().y.get_or_insert_default().val = y;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .angular_velocity
+            .get_or_insert_default()
+            .y
+            .get_or_insert_default()
+            .val = y;
         self
     }
 
     /// Set the angular velocity z value of the desired car.
     pub fn angular_velocity_z(self, z: f32) -> Self {
-        self.car.physics.get_or_insert_default().angular_velocity.get_or_insert_default().z.get_or_insert_default().val = z;
+        self.car
+            .physics
+            .get_or_insert_default()
+            .angular_velocity
+            .get_or_insert_default()
+            .z
+            .get_or_insert_default()
+            .val = z;
         self
     }
 }
@@ -214,9 +326,7 @@ pub struct DesiredBallBuilder<'a> {
 #[allow(dead_code)]
 impl<'a> DesiredBallBuilder<'a> {
     pub fn new(ball: &'a mut DesiredBallState) -> Self {
-        Self {
-            ball
-        }
+        Self { ball }
     }
 
     /// Set the location of the desired ball.
@@ -228,19 +338,37 @@ impl<'a> DesiredBallBuilder<'a> {
 
     /// Set the location x value of the desired ball.
     pub fn location_x(self, x: f32) -> Self {
-        self.ball.physics.location.get_or_insert_default().x.get_or_insert_default().val = x;
+        self.ball
+            .physics
+            .location
+            .get_or_insert_default()
+            .x
+            .get_or_insert_default()
+            .val = x;
         self
     }
 
     /// Set the location y value of the desired ball.
     pub fn location_y(self, y: f32) -> Self {
-        self.ball.physics.location.get_or_insert_default().y.get_or_insert_default().val = y;
+        self.ball
+            .physics
+            .location
+            .get_or_insert_default()
+            .y
+            .get_or_insert_default()
+            .val = y;
         self
     }
 
     /// Set the location z value of the desired ball.
     pub fn location_z(self, z: f32) -> Self {
-        self.ball.physics.location.get_or_insert_default().z.get_or_insert_default().val = z;
+        self.ball
+            .physics
+            .location
+            .get_or_insert_default()
+            .z
+            .get_or_insert_default()
+            .val = z;
         self
     }
 
@@ -253,19 +381,37 @@ impl<'a> DesiredBallBuilder<'a> {
 
     /// Set the velocity x value of the desired ball.
     pub fn velocity_x(self, x: f32) -> Self {
-        self.ball.physics.velocity.get_or_insert_default().x.get_or_insert_default().val = x;
+        self.ball
+            .physics
+            .velocity
+            .get_or_insert_default()
+            .x
+            .get_or_insert_default()
+            .val = x;
         self
     }
 
     /// Set the velocity y value of the desired ball.
     pub fn velocity_y(self, y: f32) -> Self {
-        self.ball.physics.velocity.get_or_insert_default().y.get_or_insert_default().val = y;
+        self.ball
+            .physics
+            .velocity
+            .get_or_insert_default()
+            .y
+            .get_or_insert_default()
+            .val = y;
         self
     }
 
     /// Set the velocity z value of the desired ball.
     pub fn velocity_z(self, z: f32) -> Self {
-        self.ball.physics.velocity.get_or_insert_default().z.get_or_insert_default().val = z;
+        self.ball
+            .physics
+            .velocity
+            .get_or_insert_default()
+            .z
+            .get_or_insert_default()
+            .val = z;
         self
     }
 
@@ -278,19 +424,37 @@ impl<'a> DesiredBallBuilder<'a> {
 
     /// Set the rotation pitch of the desired ball.
     pub fn rotation_pitch(self, pitch: f32) -> Self {
-        self.ball.physics.rotation.get_or_insert_default().pitch.get_or_insert_default().val = pitch;
+        self.ball
+            .physics
+            .rotation
+            .get_or_insert_default()
+            .pitch
+            .get_or_insert_default()
+            .val = pitch;
         self
     }
 
     /// Set the rotation yaw of the desired ball.
     pub fn rotation_yaw(self, yaw: f32) -> Self {
-        self.ball.physics.rotation.get_or_insert_default().yaw.get_or_insert_default().val = yaw;
+        self.ball
+            .physics
+            .rotation
+            .get_or_insert_default()
+            .yaw
+            .get_or_insert_default()
+            .val = yaw;
         self
     }
 
     /// Set the rotation roll of the desired ball.
     pub fn rotation_roll(self, roll: f32) -> Self {
-        self.ball.physics.rotation.get_or_insert_default().roll.get_or_insert_default().val = roll;
+        self.ball
+            .physics
+            .rotation
+            .get_or_insert_default()
+            .roll
+            .get_or_insert_default()
+            .val = roll;
         self
     }
 
@@ -303,19 +467,37 @@ impl<'a> DesiredBallBuilder<'a> {
 
     /// Set the angular velocity x value of the desired ball.
     pub fn angular_velocity_x(self, x: f32) -> Self {
-        self.ball.physics.angular_velocity.get_or_insert_default().x.get_or_insert_default().val = x;
+        self.ball
+            .physics
+            .angular_velocity
+            .get_or_insert_default()
+            .x
+            .get_or_insert_default()
+            .val = x;
         self
     }
 
     /// Set the angular velocity y value of the desired ball.
     pub fn angular_velocity_y(self, y: f32) -> Self {
-        self.ball.physics.angular_velocity.get_or_insert_default().y.get_or_insert_default().val = y;
+        self.ball
+            .physics
+            .angular_velocity
+            .get_or_insert_default()
+            .y
+            .get_or_insert_default()
+            .val = y;
         self
     }
 
     /// Set the angular velocity z value of the desired ball.
     pub fn angular_velocity_z(self, z: f32) -> Self {
-        self.ball.physics.angular_velocity.get_or_insert_default().z.get_or_insert_default().val = z;
+        self.ball
+            .physics
+            .angular_velocity
+            .get_or_insert_default()
+            .z
+            .get_or_insert_default()
+            .val = z;
         self
     }
 }
