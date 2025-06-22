@@ -9,6 +9,7 @@ use thiserror::Error;
 
 pub mod agents;
 pub mod util;
+pub mod state_builder;
 
 #[cfg(feature = "glam")]
 pub use rlbot_flat::glam;
