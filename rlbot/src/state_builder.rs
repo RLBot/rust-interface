@@ -1,8 +1,8 @@
-use std::ops::Range;
 use rlbot_flat::flat::{
     DesiredBallState, DesiredCarState, DesiredGameState, DesiredMatchInfo, Rotator, RotatorPartial,
     Vector3, Vector3Partial,
 };
+use std::ops::Range;
 
 /// Utility for easy construction of [DesiredGameState]s using builder patterns.
 ///
@@ -54,9 +54,13 @@ impl DesiredStateBuilder {
         build(DesiredBallBuilder::new(&mut self.state.ball_states[index]));
         self
     }
-    
+
     /// Modify all desired balls.
-    pub fn all_balls(mut self, range: Range<usize>, build: impl Fn(usize, DesiredBallBuilder) -> DesiredBallBuilder) -> Self {
+    pub fn all_balls(
+        mut self,
+        range: Range<usize>,
+        build: impl Fn(usize, DesiredBallBuilder) -> DesiredBallBuilder,
+    ) -> Self {
         while self.state.ball_states.len() < range.end {
             self.state.ball_states.push(Default::default());
         }
@@ -80,7 +84,11 @@ impl DesiredStateBuilder {
     }
 
     /// Modify all desired cars.
-    pub fn all_cars(mut self, range: Range<usize>, build: impl Fn(usize, DesiredCarBuilder) -> DesiredCarBuilder) -> Self {
+    pub fn all_cars(
+        mut self,
+        range: Range<usize>,
+        build: impl Fn(usize, DesiredCarBuilder) -> DesiredCarBuilder,
+    ) -> Self {
         while self.state.ball_states.len() < range.end {
             self.state.ball_states.push(Default::default());
         }
