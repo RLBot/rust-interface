@@ -1,3 +1,4 @@
+use std::ops::Range;
 use rlbot_flat::flat::{
     DesiredBallState, DesiredCarState, DesiredGameState, DesiredMatchInfo, Rotator, RotatorPartial,
     Vector3, Vector3Partial,
@@ -55,8 +56,11 @@ impl DesiredStateBuilder {
     }
     
     /// Modify all desired balls.
-    pub fn all_balls(mut self, build: impl Fn(usize, DesiredBallBuilder) -> DesiredBallBuilder) -> Self {
-        for (i, ball) in self.state.ball_states.iter_mut().enumerate() {
+    pub fn all_balls(mut self, range: Range<usize>, build: impl Fn(usize, DesiredBallBuilder) -> DesiredBallBuilder) -> Self {
+        while self.state.ball_states.len() < range.end {
+            self.state.ball_states.push(Default::default());
+        }
+        for (i, ball) in self.state.ball_states[range].iter_mut().enumerate() {
             build(i, DesiredBallBuilder::new(ball));
         }
         self
@@ -76,8 +80,11 @@ impl DesiredStateBuilder {
     }
 
     /// Modify all desired cars.
-    pub fn all_cars(mut self, build: impl Fn(usize, DesiredCarBuilder) -> DesiredCarBuilder) -> Self {
-        for (i, car) in self.state.car_states.iter_mut().enumerate() {
+    pub fn all_cars(mut self, range: Range<usize>, build: impl Fn(usize, DesiredCarBuilder) -> DesiredCarBuilder) -> Self {
+        while self.state.ball_states.len() < range.end {
+            self.state.ball_states.push(Default::default());
+        }
+        for (i, car) in self.state.car_states[range].iter_mut().enumerate() {
             build(i, DesiredCarBuilder::new(car));
         }
         self
