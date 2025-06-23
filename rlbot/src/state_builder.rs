@@ -53,6 +53,14 @@ impl DesiredStateBuilder {
         build(DesiredBallBuilder::new(&mut self.state.ball_states[index]));
         self
     }
+    
+    /// Modify all desired balls.
+    pub fn all_balls(mut self, build: impl Fn(usize, DesiredBallBuilder) -> DesiredBallBuilder) -> Self {
+        for (i, ball) in self.state.ball_states.iter_mut().enumerate() {
+            build(i, DesiredBallBuilder::new(ball));
+        }
+        self
+    }
 
     /// Modify the desired car at the given index.
     pub fn car(
@@ -64,6 +72,14 @@ impl DesiredStateBuilder {
             self.state.car_states.push(Default::default());
         }
         build(DesiredCarBuilder::new(&mut self.state.car_states[index]));
+        self
+    }
+
+    /// Modify all desired cars.
+    pub fn all_cars(mut self, build: impl Fn(usize, DesiredCarBuilder) -> DesiredCarBuilder) -> Self {
+        for (i, car) in self.state.car_states.iter_mut().enumerate() {
+            build(i, DesiredCarBuilder::new(car));
+        }
         self
     }
 
