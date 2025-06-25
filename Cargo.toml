@@ -2,7 +2,7 @@
 members = ["rlbot", "rlbot_flat"]
 resolver = "3"
 package.license-file = "LICENSE"
-package.version = "0.1.1"
+package.version = "0.1.0"
 
 [profile.release]
 lto = "fat"
