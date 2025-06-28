@@ -1,3 +1,4 @@
+use core::slice;
 use eyre::{ContextCompat, anyhow};
 use planus_types::{
     ast::Docstrings,
@@ -100,42 +101,34 @@ fn docstrings_iter_mut(d: &mut Docstrings) -> impl Iterator<Item = &mut String> 
 /// Returns an iterator over all docstrings in declarations
 fn docstrings_deep_iter_mut(declarations: &mut Declarations) -> impl Iterator<Item = &mut String> {
     // Top 10 most beautiful code OAT.
-    declarations
-        .declarations
-        .iter_mut()
-        .map(|(_, decl)| {
-            docstrings_iter_mut(&mut decl.docstrings).chain({
-                let it: Box<dyn Iterator<Item = &mut String>> = match &mut decl.kind {
-                    DeclarationKind::Table(t) => Box::new(
-                        t.fields
-                            .iter_mut()
-                            .map(|(_, field)| docstrings_iter_mut(&mut field.docstrings))
-                            .flatten(),
-                    ),
-                    DeclarationKind::Struct(s) => Box::new(
-                        s.fields
-                            .iter_mut()
-                            .map(|(_, field)| docstrings_iter_mut(&mut field.docstrings))
-                            .flatten(),
-                    ),
-                    DeclarationKind::Enum(e) => Box::new(
-                        e.variants
-                            .iter_mut()
-                            .map(|(_, variant)| docstrings_iter_mut(&mut variant.docstrings))
-                            .flatten(),
-                    ),
-                    DeclarationKind::Union(u) => Box::new(
-                        u.variants
-                            .iter_mut()
-                            .map(|(_, variant)| docstrings_iter_mut(&mut variant.docstrings))
-                            .flatten(),
-                    ),
-                    DeclarationKind::RpcService(_) => unimplemented!("RpcService"),
-                };
-                it
-            })
+    declarations.declarations.iter_mut().flat_map(|(_, decl)| {
+        docstrings_iter_mut(&mut decl.docstrings).chain({
+            let it: Box<dyn Iterator<Item = &mut String>> = match &mut decl.kind {
+                DeclarationKind::Table(t) => Box::new(
+                    t.fields
+                        .iter_mut()
+                        .flat_map(|(_, field)| docstrings_iter_mut(&mut field.docstrings)),
+                ),
+                DeclarationKind::Struct(s) => Box::new(
+                    s.fields
+                        .iter_mut()
+                        .flat_map(|(_, field)| docstrings_iter_mut(&mut field.docstrings)),
+                ),
+                DeclarationKind::Enum(e) => Box::new(
+                    e.variants
+                        .iter_mut()
+                        .flat_map(|(_, variant)| docstrings_iter_mut(&mut variant.docstrings)),
+                ),
+                DeclarationKind::Union(u) => Box::new(
+                    u.variants
+                        .iter_mut()
+                        .flat_map(|(_, variant)| docstrings_iter_mut(&mut variant.docstrings)),
+                ),
+                DeclarationKind::RpcService(_) => unimplemented!("RpcService"),
+            };
+            it
         })
-        .flatten()
+    })
 }
 
 /// Generate From<EnumVariant> for enum types.
@@ -153,9 +146,12 @@ fn generate_custom<'a>(
         ));
 
         for variant in u.variants.keys() {
-            let from_t = [&decl_path.0[..decl_path.0.len() - 1], &[variant.clone()]]
-                .concat()
-                .join("::");
+            let from_t = [
+                &decl_path.0[..decl_path.0.len() - 1],
+                slice::from_ref(variant),
+            ]
+            .concat()
+            .join("::");
             let for_t = decl_path.0.join("::");
             #[rustfmt::skip]
             output.push_str(&format!(

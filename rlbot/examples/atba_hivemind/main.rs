@@ -34,8 +34,7 @@ impl HivemindAgent for AtbaHivemind {
                 controllable_team_info
                     .controllables
                     .iter()
-                    .find(|controllable| controllable.identifier == pconf.player_id)
-                    .is_some()
+                    .any(|controllable| controllable.identifier == pconf.player_id)
             })
             .map(|player| {
                 if let PlayerClass::CustomBot(custombot) = &player.variety {
