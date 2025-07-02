@@ -71,14 +71,7 @@ macro_rules! from_render_message {
     };
 }
 
-from_render_message!(
-    Line3D,
-    PolyLine3D,
-    String2D,
-    String3D,
-    Rect2D,
-    Rect3D
-);
+from_render_message!(Line3D, PolyLine3D, String2D, String3D, Rect2D, Rect3D);
 
 impl From<flat::Vector3> for flat::RenderAnchor {
     fn from(value: flat::Vector3) -> Self {
@@ -109,4 +102,3 @@ impl From<flat::BallAnchor> for flat::RelativeAnchor {
         flat::RelativeAnchor::BallAnchor(Box::new(value))
     }
 }
-
