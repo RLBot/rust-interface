@@ -4,7 +4,7 @@ use rlbot_flat::flat::{
 };
 
 #[rustfmt::skip]
-mod colors {
+pub mod colors {
     use rlbot_flat::flat::Color;
     pub const TRANSPARENT: Color = Color { r: 0, g: 0, b: 0, a: 0 };
     pub const BLACK: Color = Color { r: 0, g: 0, b: 0, a: 255 };
@@ -20,14 +20,14 @@ mod colors {
     pub const PURPLE: Color = Color { r: 128, g: 0, b: 128, a: 255 };
     pub const TEAL: Color = Color { r: 0, g: 128, b: 128, a: 255 };
 }
-pub use colors::*;
 
 /// The Renderer allows of easy construction of [RenderGroup]s for in-game debug rendering.
 /// When done, call [build] and queue the resulting [RenderGroup] in the packet queue.
 ///
 /// Example:
 /// ```ignore
-/// use rlbot::render::{Renderer, RED, GREEN, BLUE};
+/// use rlbot::render::{Renderer};
+/// use rlbot::render::colors::{BLUE, GREEN, RED};
 /// let mut draw = Renderer::new(0);
 /// draw.line_3d(car.pos, car.pos + car.forward() * 120., RED);
 /// draw.line_3d(car.pos, car.pos + car.rightward() * 120., GREEN);
@@ -100,7 +100,7 @@ impl Renderer {
     /// Consider using [push] and `..default()` when using multiple default values.
     pub fn string_2d(
         &mut self,
-        text: impl Into<String>,
+        text: String,
         x: f32,
         y: f32,
         scale: f32,
@@ -111,7 +111,7 @@ impl Renderer {
     ) {
         self.group.render_messages.push(
             String2D {
-                text: text.into(),
+                text,
                 x,
                 y,
                 scale,
@@ -129,7 +129,7 @@ impl Renderer {
     /// Consider using [push] and `..default()` when using multiple default values.
     pub fn string_3d(
         &mut self,
-        text: impl Into<String>,
+        text: String,
         anchor: impl Into<RenderAnchor>,
         scale: f32,
         foreground: Color,
@@ -139,7 +139,7 @@ impl Renderer {
     ) {
         self.group.render_messages.push(
             String3D {
-                text: text.into(),
+                text,
                 anchor: Box::new(anchor.into()),
                 scale,
                 foreground,
