@@ -27,7 +27,7 @@ pub use colors::*;
 ///
 /// Example:
 /// ```ignore
-/// use rlbot::render::WHITE;
+/// use rlbot::render::{Renderer, RED, GREEN, BLUE};
 /// let mut draw = Renderer::new(0);
 /// draw.line_3d(car.pos, car.pos + car.forward() * 120., RED);
 /// draw.line_3d(car.pos, car.pos + car.rightward() * 120., GREEN);
