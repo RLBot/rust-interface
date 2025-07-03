@@ -1,4 +1,7 @@
-use rlbot_flat::flat::{DesiredBallState, DesiredCarState, DesiredGameState, DesiredMatchInfo, DesiredPhysics, Rotator, RotatorPartial, Vector3, Vector3Partial};
+use rlbot_flat::flat::{
+    DesiredBallState, DesiredCarState, DesiredGameState, DesiredMatchInfo, DesiredPhysics, Rotator,
+    RotatorPartial, Vector3, Vector3Partial,
+};
 
 /// Extension methods for easy construction of [DesiredGameState].
 ///
@@ -17,28 +20,13 @@ use rlbot_flat::flat::{DesiredBallState, DesiredCarState, DesiredGameState, Desi
 /// })));
 /// ```
 pub trait DesiredGameStateExt {
+    fn mod_match_info(&mut self, build: impl FnOnce(&mut DesiredMatchInfo));
 
-    fn mod_match_info(
-        &mut self,
-        build: impl FnOnce(&mut DesiredMatchInfo),
-    );
+    fn mod_car(&mut self, index: usize, build: impl FnOnce(&mut DesiredCarState));
 
-    fn mod_car(
-        &mut self,
-        index: usize,
-        build: impl FnOnce(&mut DesiredCarState),
-    );
+    fn mod_cars(&mut self, build: impl IntoIterator<Item = (usize, impl Fn(&mut DesiredCarState))>);
 
-    fn mod_cars(
-        &mut self,
-        build: impl IntoIterator<Item = (usize, impl Fn(&mut DesiredCarState))>,
-    );
-
-    fn mod_ball(
-        &mut self,
-        index: usize,
-        build: impl FnOnce(&mut DesiredBallState),
-    );
+    fn mod_ball(&mut self, index: usize, build: impl FnOnce(&mut DesiredBallState));
 
     fn mod_balls(
         &mut self,
@@ -48,21 +36,13 @@ pub trait DesiredGameStateExt {
 
 #[allow(dead_code)]
 impl DesiredGameStateExt for DesiredGameState {
-
     /// Modify the desired match info.
-    fn mod_match_info(
-        &mut self,
-        build: impl FnOnce(&mut DesiredMatchInfo),
-    ) {
+    fn mod_match_info(&mut self, build: impl FnOnce(&mut DesiredMatchInfo)) {
         build(self.match_info.get_or_insert_default());
     }
 
     /// Modify the desired car at the given index.
-    fn mod_car(
-        &mut self,
-        index: usize,
-        build: impl FnOnce(&mut DesiredCarState),
-    ) {
+    fn mod_car(&mut self, index: usize, build: impl FnOnce(&mut DesiredCarState)) {
         if self.car_states.len() <= index {
             self.car_states.resize(index + 1, Default::default());
         }
@@ -83,11 +63,7 @@ impl DesiredGameStateExt for DesiredGameState {
     }
 
     /// Modify the desired ball at the given index.
-    fn mod_ball(
-        &mut self,
-        index: usize,
-        build: impl FnOnce(&mut DesiredBallState),
-    ) {
+    fn mod_ball(&mut self, index: usize, build: impl FnOnce(&mut DesiredBallState)) {
         if self.ball_states.len() <= index {
             self.ball_states.resize(index + 1, Default::default());
         }
@@ -116,7 +92,6 @@ pub trait DesiredMatchInfoExt {
 
 #[allow(dead_code)]
 impl DesiredMatchInfoExt for DesiredMatchInfo {
-
     /// Set the desired world gravity z.
     fn set_gravity_z(&mut self, gravity_z: f32) {
         self.world_gravity_z.get_or_insert_default().val = gravity_z;
@@ -135,7 +110,6 @@ pub trait DesiredCarStateExt {
 }
 
 impl DesiredCarStateExt for DesiredCarState {
-
     /// Set the boost amount of this car.
     fn set_boost(&mut self, amount: f32) {
         self.boost_amount.get_or_insert_default().val = amount;
@@ -153,7 +127,6 @@ pub trait DesiredBallStateExt {
 }
 
 impl DesiredBallStateExt for DesiredBallState {
-
     /// Modify the physics of this ball.
     fn mod_physics(&mut self, build: impl FnOnce(&mut DesiredPhysics)) {
         build(&mut self.physics)
@@ -181,9 +154,15 @@ pub trait DesiredPhysicsExt {
 }
 
 macro_rules! physics_path {
-    ( $self:ident slf ) => { $self };
-    ( $self:ident physics) => { $self.physics };
-    ( $self:ident optional_physics) => { $self.physics.get_or_insert_default() };
+    ( $self:ident slf ) => {
+        $self
+    };
+    ( $self:ident physics) => {
+        $self.physics
+    };
+    ( $self:ident optional_physics) => {
+        $self.physics.get_or_insert_default()
+    };
 }
 
 macro_rules! desired_physics_ext {
