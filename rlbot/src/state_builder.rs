@@ -5,16 +5,16 @@ use rlbot_flat::flat::{DesiredBallState, DesiredCarState, DesiredGameState, Desi
 /// Example:
 /// ```rust
 /// use rlbot::state_builder::{DesiredCarStateExt, DesiredGameStateExt, DesiredPhysicsExt};
-/// use rlbot_flat::flat::{DesiredGameState, Vector3};
+/// use rlbot::flat::{DesiredGameState, Vector3};
 /// let mut dgs = DesiredGameState::default();
 /// dgs.mod_car(0, |c| {
 ///     c.set_location(Vector3::default());
 ///     c.set_boost(100.);
 /// });
-/// dgs.mod_balls(0..5, |_, b| {
+/// dgs.mod_balls((0..5).map(|i| (i, |b| {
 ///     b.set_location_z(0.);
 ///     b.set_velocity_z(0.);
-/// });
+/// })));
 /// ```
 pub trait DesiredGameStateExt {
 
@@ -31,8 +31,7 @@ pub trait DesiredGameStateExt {
 
     fn mod_cars(
         &mut self,
-        indices: impl IntoIterator<Item = usize>,
-        build: impl Fn(usize, &mut DesiredCarState),
+        build: impl IntoIterator<Item = (usize, impl Fn(&mut DesiredCarState))>,
     );
 
     fn mod_ball(
@@ -43,8 +42,7 @@ pub trait DesiredGameStateExt {
 
     fn mod_balls(
         &mut self,
-        indices: impl IntoIterator<Item = usize>,
-        build: impl Fn(usize, &mut DesiredBallState),
+        build: impl IntoIterator<Item = (usize, impl Fn(&mut DesiredBallState))>,
     );
 }
 
@@ -74,14 +72,13 @@ impl DesiredGameStateExt for DesiredGameState {
     /// Modify all desired cars.
     fn mod_cars(
         &mut self,
-        indices: impl IntoIterator<Item = usize>,
-        build: impl Fn(usize, &mut DesiredCarState),
+        build: impl IntoIterator<Item = (usize, impl Fn(&mut DesiredCarState))>,
     ) {
-        for i in indices {
+        for (i, func) in build {
             if self.car_states.len() <= i {
                 self.car_states.resize(i + 1, Default::default());
             }
-            build(i, &mut self.car_states[i]);
+            func(&mut self.car_states[i]);
         }
     }
 
@@ -100,14 +97,13 @@ impl DesiredGameStateExt for DesiredGameState {
     /// Modify all desired balls.
     fn mod_balls(
         &mut self,
-        indices: impl IntoIterator<Item = usize>,
-        build: impl Fn(usize, &mut DesiredBallState),
+        build: impl IntoIterator<Item = (usize, impl Fn(&mut DesiredBallState))>,
     ) {
-        for i in indices {
+        for (i, func) in build {
             if self.ball_states.len() <= i {
                 self.ball_states.resize(i + 1, Default::default());
             }
-            build(i, &mut self.ball_states[i]);
+            func(&mut self.ball_states[i]);
         }
     }
 }
