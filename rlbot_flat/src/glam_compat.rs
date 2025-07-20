@@ -32,3 +32,21 @@ impl From<glam::Vec3A> for flat::Vector3 {
         }
     }
 }
+
+impl From<glam::Vec3> for flat::RenderAnchor {
+    fn from(value: glam::Vec3) -> Self {
+        Self {
+            world: value.into(),
+            relative: None,
+        }
+    }
+}
+
+impl From<glam::Vec3A> for flat::RenderAnchor {
+    fn from(value: glam::Vec3A) -> Self {
+        Self {
+            world: value.into(),
+            relative: None,
+        }
+    }
+}
