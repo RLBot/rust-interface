@@ -8,6 +8,7 @@ use rlbot_flat::planus::{self, ReadAsRoot};
 use thiserror::Error;
 
 pub mod agents;
+pub mod pkanal;
 pub mod render;
 pub mod state_builder;
 pub mod util;
@@ -64,7 +65,7 @@ pub struct StartingInfo {
 }
 
 pub struct RLBotConnection {
-    stream: TcpStream,
+    pub(crate) stream: TcpStream,
     builder: planus::Builder,
     recv_buf: Box<[u8; u16::MAX as usize]>,
 }
