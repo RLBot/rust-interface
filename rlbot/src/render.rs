@@ -21,17 +21,23 @@ pub mod colors {
     pub const TEAL: Color = Color { r: 0, g: 128, b: 128, a: 255 };
 }
 
-/// The Renderer allows of easy construction of [RenderGroup]s for in-game debug rendering.
-/// When done, call [build] and queue the resulting [RenderGroup] in the packet queue.
+/// The Renderer allows of easy construction of [`RenderGroup`]s for in-game
+/// debug rendering. When done, call [`build`] and queue the resulting
+/// [`RenderGroup`] in the packet queue.
+///
+/// [`build`]: Renderer::build
 ///
 /// Example:
 /// ```ignore
 /// use rlbot::render::{Renderer};
 /// use rlbot::render::colors::{BLUE, GREEN, RED};
+///
 /// let mut draw = Renderer::new(0);
+///
 /// draw.line_3d(car.pos, car.pos + car.forward() * 120., RED);
 /// draw.line_3d(car.pos, car.pos + car.rightward() * 120., GREEN);
 /// draw.line_3d(car.pos, car.pos + car.upward() * 120., BLUE);
+///
 /// packet_queue.push(draw.build());
 /// ```
 pub struct Renderer {

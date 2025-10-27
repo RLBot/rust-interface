@@ -25,9 +25,9 @@ pub struct Receiver<T> {
 }
 
 impl<T> Receiver<T> {
-    pub fn recv(&self) -> Result<T, kanal::ReceiveError> {
-        self.internal.recv()
-    }
+    // pub fn recv(&self) -> Result<T, kanal::ReceiveError> {
+    //     self.internal.recv()
+    // }
     pub fn try_recv(&self) -> Result<Option<T>, kanal::ReceiveError> {
         self.internal.try_recv()
     }

@@ -1,24 +1,30 @@
+//! This module contains extension methods for easy construction of
+//! statesetting-related structs.
+//!
+//! Example:
+//! ```rust
+//! use rlbot::state_builder::{DesiredCarStateExt, DesiredGameStateExt, DesiredPhysicsExt};
+//! use rlbot::flat::{DesiredGameState, Vector3};
+//!
+//! let mut dgs = DesiredGameState::default();
+//!
+//! dgs.mod_car(0, |c| {
+//!     c.set_location(Vector3::default());
+//!     c.set_boost(100.);
+//! });
+//!
+//! dgs.mod_balls((0..5).map(|i| (i, |b| {
+//!     b.set_location_z(0.);
+//!     b.set_velocity_z(0.);
+//! })));
+//! ```
+
 use rlbot_flat::flat::{
     DesiredBallState, DesiredCarState, DesiredGameState, DesiredMatchInfo, DesiredPhysics, Rotator,
     RotatorPartial, Vector3, Vector3Partial,
 };
 
-/// Extension methods for easy construction of [DesiredGameState].
-///
-/// Example:
-/// ```rust
-/// use rlbot::state_builder::{DesiredCarStateExt, DesiredGameStateExt, DesiredPhysicsExt};
-/// use rlbot::flat::{DesiredGameState, Vector3};
-/// let mut dgs = DesiredGameState::default();
-/// dgs.mod_car(0, |c| {
-///     c.set_location(Vector3::default());
-///     c.set_boost(100.);
-/// });
-/// dgs.mod_balls((0..5).map(|i| (i, |b| {
-///     b.set_location_z(0.);
-///     b.set_velocity_z(0.);
-/// })));
-/// ```
+/// Extension methods for easy construction of a [DesiredGameState].
 pub trait DesiredGameStateExt {
     fn mod_match_info(&mut self, build: impl FnOnce(&mut DesiredMatchInfo));
 

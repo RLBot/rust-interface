@@ -1,3 +1,45 @@
+// TODO: Update asset links
+//! <div style="width: 24rem; padding-bottom: 1rem; display: flex">
+#![doc=include_str!("../../assets/RLBotRustLogoText.svg")]
+//! </div>
+//! <style> svg {height: auto} </style>
+//!
+//! This is a Rust interface for the [RLBot] v5 socket api. RLBot is a framework
+//! for creating offline Rocket League bots. This crate lets you write bots
+//! using a simple, safe interface that should feel comfortable to Rust
+//! developers.
+//!
+//! [RLBot]: https://rlbot.org/
+//!
+//! All of the types in the [`flat`] module are generated from the
+//! [flatbuffers spec]. Documentation for these types are carried over from the
+//! spec. For further documentation about how RLBot works, see the resources
+//! linked on the [RLBot Wiki].
+//!
+//! [flatbuffers spec]: https://github.com/RLBot/flatbuffers-schema
+//! [RLBot Wiki]: https://wiki.rlbot.org/
+//!
+//! The two main different ways of using this crate follows:
+//! - The [`agents`] API - This is a **higher-level** interface. The
+//!   [run_x_agent] functions initializes an agent for you. Relevant examples:
+//!   [atba_agent, atba_hivemind, high_jump_script].
+//! - [`RLBotConnection`] – This is a **lower-level** wrapper around the actual
+//!   tcp connection to [core] (RLBotServer). It allows you to use
+//!   [`send_packet`] and [`recv_packet`] to manually communicate with RLBot.
+//!   For documentation on how to do this, refer to the [socket specification].
+//!   Relevant examples: [start_match, stop_match, packet_logger and atba_raw]
+//!
+//! [run_x_agent]: agents#functions
+//! [atba_agent, atba_hivemind, high_jump_script]: https://github.com/RLBot/rust-interface/tree/master/rlbot/examples
+//! [`send_packet`]: RLBotConnection::send_packet
+//! [`recv_packet`]: RLBotConnection::recv_packet
+//! [socket specification]: https://wiki.rlbot.org/v5/framework/sockets-specification/
+//! [start_match, stop_match, packet_logger and atba_raw]: https://github.com/RLBot/rust-interface/tree/master/rlbot/examples
+//! [core]: https://github.com/RLBot/core
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/RLBot/rust-interface/refs/heads/master/assets/RLBotRustLogo.png"
+)]
+
 use std::{
     io::{Read, Write},
     net::{AddrParseError, SocketAddr, TcpStream},
@@ -8,7 +50,7 @@ use rlbot_flat::planus::{self, ReadAsRoot};
 use thiserror::Error;
 
 pub mod agents;
-pub mod pkanal;
+mod pkanal;
 pub mod render;
 pub mod state_builder;
 pub mod util;
@@ -17,6 +59,9 @@ pub mod util;
 pub use rlbot_flat::glam;
 
 pub mod flat {
+    //! This module contains all of the types that are generated from the
+    //! RLBot flatbuffers schema
+
     pub use rlbot_flat::RLBOT_FLATBUFFERS_SCHEMA_REV;
     pub use rlbot_flat::flat::*;
 }
@@ -64,6 +109,7 @@ pub struct StartingInfo {
     pub field_info: FieldInfo,
 }
 
+/// A wrapper around a TCP connection to [core](https://github.com/RLBot/core).
 pub struct RLBotConnection {
     pub(crate) stream: TcpStream,
     builder: planus::Builder,
@@ -96,10 +142,12 @@ impl RLBotConnection {
         Ok(())
     }
 
+    /// Send anything that turns into an [`InterfaceMessage`] to core.
     pub fn send_packet(&mut self, packet: impl Into<InterfaceMessage>) -> Result<(), RLBotError> {
         self.send_packet_enum(packet.into())
     }
 
+    /// Receive a [`CoreMessage`] from core.
     pub fn recv_packet(&mut self) -> Result<CoreMessage, RLBotError> {
         let mut buf = [0u8; 2];
 
@@ -118,11 +166,13 @@ impl RLBotConnection {
         Ok(packet.message)
     }
 
+    /// Sets the TCP connection to core to be non-blocking.
     pub fn set_nonblocking(&self, nonblocking: bool) -> Result<(), RLBotError> {
         self.stream.set_nonblocking(nonblocking)?;
         Ok(())
     }
 
+    /// Establish a new connection to core
     pub fn new(addr: &str) -> Result<Self, RLBotError> {
         let stream = TcpStream::connect(SocketAddr::from_str(addr)?)?;
 
@@ -135,6 +185,8 @@ impl RLBotConnection {
         })
     }
 
+    /// Wait until we get [`ControllableTeamInfo`], [`MatchConfiguration`], and
+    /// [`FieldInfo`] from core, discarding all other packets.
     pub fn get_starting_info(&mut self) -> Result<StartingInfo, RLBotError> {
         let mut controllable_team_info = None;
         let mut match_configuration = None;
