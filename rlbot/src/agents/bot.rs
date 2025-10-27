@@ -228,6 +228,10 @@ fn run_bot_agent<T: BotAgent>(
             }
         }
 
+        if outgoing_queue.internal_queue.is_empty() {
+            continue; // Skip waking up main thread.
+        }
+
         outgoing_sender
             .send(outgoing_queue.empty())
             .expect("Couldn't send outgoing");

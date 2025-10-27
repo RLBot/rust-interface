@@ -32,7 +32,7 @@ impl AgentEnvironment {
 
 /// A queue of packets to be sent to RLBotServer
 pub struct PacketQueue {
-    internal_queue: Vec<InterfaceMessage>,
+    pub(crate) internal_queue: Vec<InterfaceMessage>,
 }
 
 impl Default for PacketQueue {
