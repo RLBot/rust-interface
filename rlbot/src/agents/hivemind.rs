@@ -1,6 +1,6 @@
 use rlbot_flat::flat::{
     BallPrediction, ConnectionSettings, ControllableTeamInfo, CoreMessage, FieldInfo, GamePacket,
-    InitComplete, MatchComm, MatchConfiguration, RenderingStatus,
+    InitComplete, MatchComm, MatchConfiguration, PingResponse, RenderingStatus,
 };
 
 use crate::{RLBotConnection, StartingInfo, util::PacketQueue};
@@ -29,6 +29,7 @@ pub trait HivemindAgent {
         packet_queue: &mut PacketQueue,
     ) {
     }
+    fn on_ping_response(&mut self, packet_queue: &mut PacketQueue) {}
 }
 
 pub fn run_hivemind_agent<T: HivemindAgent>(
@@ -75,6 +76,12 @@ pub fn run_hivemind_agent<T: HivemindAgent>(
             }
             CoreMessage::RenderingStatus(x) => {
                 agent.on_rendering_status(*x, &mut outgoing_queue);
+            }
+            CoreMessage::PingResponse(_) => {
+                agent.on_ping_response(&mut outgoing_queue);
+            }
+            CoreMessage::PingRequest(_) => {
+                outgoing_queue.push(PingResponse {});
             }
             CoreMessage::FieldInfo(_)
             | CoreMessage::MatchConfiguration(_)
