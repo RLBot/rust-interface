@@ -62,8 +62,11 @@ pub fn main() -> eyre::Result<()> {
         }
     }
 
-    let generated_planus = // No idea why planus renames RLBot to RlBot but this fixes it
+    let mut generated_planus = // No idea why planus renames RLBot to RlBot but this fixes it
         planus_codegen::generate_rust(&declarations)?.replace("RlBot", "RLBot");
+
+    #[cfg(feature = "dts")]
+    insert_ts_rs_macros(&mut generated_planus)?;
 
     let generated_custom = generate_custom(declarations.declarations.iter().filter(|x| {
         x.0.0
@@ -90,6 +93,36 @@ pub fn main() -> eyre::Result<()> {
 
     fs::File::create(OUT_FILE)?.write_all(raw_out)?;
 
+    Ok(())
+}
+
+fn insert_ts_rs_macros(generated_planus: &mut String) -> eyre::Result<()> {
+    // the TS derive macro depends on prelude to exist
+    *generated_planus = generated_planus.replace("#[no_implicit_prelude]", "");
+    let mut offset = 0;
+    while let Some(start_rel) = generated_planus[offset..].find("#[derive(") {
+        let start_abs = offset + start_rel;
+        if let Some(end_rel) = generated_planus[start_abs..].find(")]") {
+            let end_abs = start_abs + end_rel + 2;
+            if let Some(pos) = generated_planus[start_abs..end_abs].find("::serde::Serialize") {
+                let line_start = generated_planus[..start_abs]
+                    .rfind('\n')
+                    .map(|i| i + 1)
+                    .unwrap_or(0);
+                let indent = generated_planus[line_start..start_abs].to_owned();
+                let macro_insert = "::ts_rs::TS, ";
+                generated_planus.insert_str(start_abs + pos, macro_insert);
+                let new_end_abs = end_abs + macro_insert.len();
+                let replacement = format!("\n{indent}#[ts(export)]");
+                generated_planus.insert_str(new_end_abs, &replacement);
+                offset = new_end_abs + replacement.len();
+            } else {
+                offset = end_abs;
+            }
+        } else {
+            break;
+        }
+    }
     Ok(())
 }
 
