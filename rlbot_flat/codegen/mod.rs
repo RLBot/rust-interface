@@ -105,15 +105,16 @@ fn insert_ts_rs_macros(generated_planus: &mut String) -> eyre::Result<()> {
         if let Some(end_rel) = generated_planus[start_abs..].find(")]") {
             let end_abs = start_abs + end_rel + 2;
             if let Some(pos) = generated_planus[start_abs..end_abs].find("::serde::Serialize") {
-                let line_start = generated_planus[..start_abs]
-                    .rfind('\n')
-                    .map(|i| i + 1)
-                    .unwrap_or(0);
-                let indent = generated_planus[line_start..start_abs].to_owned();
+                // let line_start = generated_planus[..start_abs]
+                //     .rfind('\n')
+                //     .map(|i| i + 1)
+                //     .unwrap_or(0);
+                // let indent = generated_planus[line_start..start_abs].to_owned();
                 let macro_insert = "::ts_rs::TS, ";
                 generated_planus.insert_str(start_abs + pos, macro_insert);
                 let new_end_abs = end_abs + macro_insert.len();
-                let replacement = format!("\n{indent}#[ts(export)]");
+                // let replacement = format!("\n{indent}#[ts(export)]");
+                let replacement = format!("");
                 generated_planus.insert_str(new_end_abs, &replacement);
                 offset = new_end_abs + replacement.len();
             } else {
