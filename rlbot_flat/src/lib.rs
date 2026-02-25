@@ -102,3 +102,21 @@ impl From<flat::BallAnchor> for flat::RelativeAnchor {
         flat::RelativeAnchor::BallAnchor(Box::new(value))
     }
 }
+
+impl From<flat::CarAnchor> for flat::RenderAnchor {
+    fn from(value: flat::CarAnchor) -> Self {
+        Self {
+            world: flat::Vector3::default(),
+            relative: Some(value.into()),
+        }
+    }
+}
+
+impl From<flat::BallAnchor> for flat::RenderAnchor {
+    fn from(value: flat::BallAnchor) -> Self {
+        Self {
+            world: flat::Vector3::default(),
+            relative: Some(value.into()),
+        }
+    }
+}
