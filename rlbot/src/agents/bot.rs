@@ -30,6 +30,7 @@ pub trait BotAgent {
         packet_queue: &mut PacketQueue,
     ) {
     }
+    fn on_ping_response(&mut self, ping_response: &PingResponse, packet_queue: &mut PacketQueue) {}
 }
 
 /// Run multiple agents with n agents per thread. They share a connection.
@@ -220,6 +221,12 @@ fn run_bot_agent<T: BotAgent>(
             }
             CoreMessage::RenderingStatus(x) => {
                 agent.on_rendering_status(x, &mut outgoing_queue);
+            }
+            CoreMessage::PingResponse(x) => {
+                agent.on_ping_response(x, &mut outgoing_queue);
+            }
+            CoreMessage::PingRequest(x) => {
+                outgoing_queue.push(PingResponse { cookie: x.cookie });
             }
             CoreMessage::FieldInfo(_)
             | CoreMessage::MatchConfiguration(_)

@@ -1,6 +1,6 @@
 use rlbot_flat::flat::{
     BallPrediction, ConnectionSettings, CoreMessage, FieldInfo, GamePacket, InitComplete,
-    MatchComm, MatchConfiguration, RenderingStatus,
+    MatchComm, MatchConfiguration, PingResponse, RenderingStatus,
 };
 
 use crate::{RLBotConnection, StartingInfo, util::PacketQueue};
@@ -29,6 +29,7 @@ pub trait ScriptAgent {
         packet_queue: &mut PacketQueue,
     ) {
     }
+    fn on_ping_response(&mut self, ping_response: &PingResponse, packet_queue: &mut PacketQueue) {}
 }
 
 pub fn run_script_agent<T: ScriptAgent>(
@@ -75,6 +76,12 @@ pub fn run_script_agent<T: ScriptAgent>(
             }
             CoreMessage::RenderingStatus(x) => {
                 agent.on_rendering_status(*x, &mut outgoing_queue);
+            }
+            CoreMessage::PingResponse(x) => {
+                agent.on_ping_response(&x, &mut outgoing_queue);
+            }
+            CoreMessage::PingRequest(x) => {
+                outgoing_queue.push(PingResponse { cookie: x.cookie });
             }
             CoreMessage::FieldInfo(_)
             | CoreMessage::MatchConfiguration(_)
