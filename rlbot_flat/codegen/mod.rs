@@ -39,19 +39,10 @@ pub fn main() -> eyre::Result<()> {
     for docstring in docstrings_deep_iter_mut(&mut declarations) {
         let mut start = 0;
         while start < docstring.len() {
-            let end = {
-                let (mut ch_iter, mut i_iter) = (docstring[start..].chars(), start..);
-                loop {
-                    let next = ch_iter.next();
-                    if let Some(ch) = next
-                        && !ch.is_whitespace()
-                    {
-                        i_iter.next();
-                        continue;
-                    }
-                    break i_iter.next().unwrap();
-                }
-            };
+            let end = docstring[start..]
+                .find(|c: char| c.is_whitespace())
+                .map(|rel| start + rel)
+                .unwrap_or(docstring.len());
             if let Ok(uri) = fluent_uri::Uri::parse(&docstring[start..end])
                 && (uri.scheme().as_str() == "http" || uri.scheme().as_str() == "https")
             {
