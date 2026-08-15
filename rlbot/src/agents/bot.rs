@@ -1,8 +1,11 @@
-use std::{io::ErrorKind, sync::Arc, thread};
+use std::{io, sync::Arc, thread};
 
 use mio::Interest;
 
-use crate::{RLBotConnection, RLBotError, StartingInfo, flat::*, pkanal, util::PacketQueue};
+use crate::{
+    RLBotConnection, RLBotError, StartingInfo, flat::*, parse_core_message, pkanal,
+    util::PacketQueue,
+};
 
 use super::AgentError;
 
@@ -134,29 +137,48 @@ pub fn run_bot_agents<T: BotAgent>(
 
     // Main loop, broadcast packet to all of the bots, then wait for all of the outgoing vecs
     let mut events = mio::Events::with_capacity(128);
+    let mut read_buf: Vec<u8> = Vec::with_capacity(1024);
     'main: loop {
         poll.poll(&mut events, None)
             .expect("couldn't poll with mio");
         for event in &events {
             match event.token() {
-                INCOMING => 'incoming: loop {
-                    let packet = match connection.recv_packet() {
-                        Ok(x) => x,
-                        Err(RLBotError::Connection(e)) if e.kind() == ErrorKind::WouldBlock => {
-                            break 'incoming;
-                        }
-                        Err(e) => Err(e)?,
-                    };
-                    let packet = Arc::new(packet);
+                INCOMING => loop {
+                    // Read through the mio-registered handle (not the clone in
+                    // `connection.stream`) so that mio re-arms the socket's
+                    // readiness event. On Windows, mio only re-delivers
+                    // readiness after I/O goes through `try_io`.
+                    let would_block = drain_socket(&mut mio_stream, &mut read_buf)
+                        .map_err(RLBotError::Connection)?;
 
-                    for (incoming_sender, _) in &threads {
-                        if incoming_sender.send(packet.clone()).is_err() {
-                            return Err(AgentError::AgentPanic);
+                    // Broadcast every complete message currently buffered.
+                    loop {
+                        if read_buf.len() < 2 {
+                            break;
+                        }
+                        let data_len = u16::from_be_bytes([read_buf[0], read_buf[1]]) as usize;
+                        if read_buf.len() < 2 + data_len {
+                            break;
+                        }
+                        let payload = read_buf[2..2 + data_len].to_vec();
+                        read_buf.drain(..2 + data_len);
+
+                        let packet = parse_core_message(&payload)?;
+                        let packet = Arc::new(packet);
+
+                        for (incoming_sender, _) in &threads {
+                            if incoming_sender.send(packet.clone()).is_err() {
+                                return Err(AgentError::AgentPanic);
+                            }
+                        }
+
+                        if matches!(&*packet, CoreMessage::DisconnectSignal(_)) {
+                            break 'main;
                         }
                     }
 
-                    if matches!(&*packet, CoreMessage::DisconnectSignal(_)) {
-                        break 'main;
+                    if would_block {
+                        break;
                     }
                 },
                 OUTGOING => 'outgoing: loop {
@@ -168,7 +190,9 @@ pub fn run_bot_agents<T: BotAgent>(
                         break 'outgoing;
                     };
 
-                    connection.send_packets_enum(p.into_iter())?;
+                    let to_write = connection.build_interface_messages(p.into_iter())?;
+                    write_all_via_mio(&mut mio_stream, &to_write)
+                        .map_err(RLBotError::Connection)?;
                 },
                 _ => unreachable!(),
             }
@@ -249,4 +273,126 @@ fn run_bot_agent<T: BotAgent>(
     // Wake outgoing to check if all outgoing_senders are closed.
     // If so, main thread will exit.
     outgoing_sender.drop_and_wake();
+}
+
+/// Read any bytes currently available from the non-blocking, mio-registered
+/// socket via `mio_stream.try_io`. Doing the I/O through `try_io` on the
+/// registered handle is required on Windows so that mio re-arms the socket's
+/// readiness event for the next `poll`; reading through a cloned handle
+/// instead causes `poll` to never wake again.
+///
+/// Returns `Ok(true)` when the socket would have blocked (no more data right
+/// now), otherwise `Ok(false)`.
+fn drain_socket(mio_stream: &mut mio::net::TcpStream, read_buf: &mut Vec<u8>) -> io::Result<bool> {
+    let mut scratch = [0u8; 8192];
+    let ptr = scratch.as_mut_ptr();
+    let cap = scratch.len();
+
+    let res = mio_stream.try_io(|| {
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawSocket;
+            // SAFETY: `recvfrom` is called with a valid connected socket and a
+            // buffer that lives for the duration of the call.
+            let n = unsafe {
+                libc::recvfrom(
+                    mio_stream.as_raw_socket() as usize,
+                    ptr as *mut libc::c_char,
+                    cap as libc::c_int,
+                    0,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                )
+            };
+            if n < 0 {
+                return Err(io::Error::last_os_error());
+            }
+            Ok(n as usize)
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::io::AsRawFd;
+            // SAFETY: `read` is called with a valid fd and a buffer that lives
+            // for the duration of the call.
+            let n = unsafe { libc::read(mio_stream.as_raw_fd(), ptr as *mut libc::c_void, cap) };
+            if n < 0 {
+                return Err(io::Error::last_os_error());
+            }
+            Ok(n as usize)
+        }
+    });
+
+    match res {
+        Ok(n) if n > 0 => {
+            read_buf.extend_from_slice(&scratch[..n]);
+            Ok(false)
+        }
+        Ok(_) => Ok(true),
+        Err(e) if e.kind() == io::ErrorKind::WouldBlock => Ok(true),
+        Err(e) => Err(e),
+    }
+}
+
+/// Write all of `data` through the non-blocking, mio-registered socket using
+/// `mio_stream.try_io`, so that mio can re-arm writability on Windows.
+fn write_all_via_mio(mio_stream: &mut mio::net::TcpStream, data: &[u8]) -> io::Result<()> {
+    let mut written = 0;
+    while written < data.len() {
+        let res = mio_stream.try_io(|| {
+            #[cfg(windows)]
+            {
+                use std::os::windows::io::AsRawSocket;
+                // SAFETY: `sendto` is called with a valid connected socket and
+                // a buffer range that lives for the duration of the call.
+                let n = unsafe {
+                    libc::sendto(
+                        mio_stream.as_raw_socket() as usize,
+                        data.as_ptr().add(written) as *const libc::c_char,
+                        (data.len() - written) as libc::c_int,
+                        0,
+                        std::ptr::null(),
+                        0,
+                    )
+                };
+                if n < 0 {
+                    return Err(io::Error::last_os_error());
+                }
+                Ok(n as usize)
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::io::AsRawFd;
+                // SAFETY: `send` is called with a valid fd and a buffer range
+                // that lives for the duration of the call.
+                let n = unsafe {
+                    libc::send(
+                        mio_stream.as_raw_fd(),
+                        data.as_ptr().add(written) as *const libc::c_void,
+                        data.len() - written,
+                        0,
+                    )
+                };
+                if n < 0 {
+                    return Err(io::Error::last_os_error());
+                }
+                Ok(n as usize)
+            }
+        });
+
+        match res {
+            Ok(n) if n > 0 => written += n,
+            Ok(_) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "socket closed while writing",
+                ));
+            }
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                // Socket send buffer is full; retry once it drains.
+                continue;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }

@@ -117,10 +117,13 @@ pub struct RLBotConnection {
 }
 
 impl RLBotConnection {
-    pub(crate) fn send_packets_enum(
+    /// Build a Vec<u8> that RLBotServer can understand from a sequence of
+    /// outgoing packets, without touching the socket. Used so the event loop
+    /// can write through the mio-registered handle.
+    pub(crate) fn build_interface_messages(
         &mut self,
         packets: impl Iterator<Item = InterfaceMessage>,
-    ) -> Result<(), RLBotError> {
+    ) -> Result<Vec<u8>, RLBotError> {
         let to_write = packets
             // convert Packet to Vec<u8> that RLBotServer can understand
             .flat_map(|x| {
@@ -128,6 +131,15 @@ impl RLBotConnection {
                     .expect("failed to build packet")
             })
             .collect::<Vec<_>>();
+
+        Ok(to_write)
+    }
+
+    pub(crate) fn send_packets_enum(
+        &mut self,
+        packets: impl Iterator<Item = InterfaceMessage>,
+    ) -> Result<(), RLBotError> {
+        let to_write = self.build_interface_messages(packets)?;
 
         self.stream.write_all(&to_write)?;
         self.stream.flush()?;
@@ -159,11 +171,7 @@ impl RLBotConnection {
 
         self.stream.read_exact(buf)?;
 
-        let packet_ref: CorePacketRef =
-            CorePacketRef::read_as_root(buf).map_err(PacketParseError::InvalidFlatbuffer)?;
-        let packet: CorePacket = packet_ref.try_into().unwrap();
-
-        Ok(packet.message)
+        parse_core_message(buf)
     }
 
     /// Sets the TCP connection to core to be non-blocking.
@@ -221,6 +229,18 @@ impl RLBotConnection {
 pub enum PacketBuildError {
     #[error("Payload too large {0}, couldn't fit in u16")]
     PayloadTooLarge(usize),
+}
+
+/// Parse a flatbuffer buffer (the payload only, without the 2-byte length
+/// prefix) into a [`CoreMessage`]. This is shared between the blocking
+/// [`RLBotConnection::recv_packet`] and the non-blocking, mio-based event
+/// loop in [`agents::run_bot_agents`].
+pub(crate) fn parse_core_message(buf: &[u8]) -> Result<CoreMessage, RLBotError> {
+    let packet_ref: CorePacketRef =
+        CorePacketRef::read_as_root(buf).map_err(PacketParseError::InvalidFlatbuffer)?;
+    let packet: CorePacket = packet_ref.try_into().unwrap();
+
+    Ok(packet.message)
 }
 
 fn build_packet_payload(
