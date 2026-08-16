@@ -117,17 +117,25 @@ pub struct RLBotConnection {
 }
 
 impl RLBotConnection {
-    pub(crate) fn send_packets_enum(
+    /// Build the bytes for outgoing packets without touching the socket.
+    pub(crate) fn build_interface_messages(
         &mut self,
         packets: impl Iterator<Item = InterfaceMessage>,
-    ) -> Result<(), RLBotError> {
-        let to_write = packets
+    ) -> Vec<u8> {
+        packets
             // convert Packet to Vec<u8> that RLBotServer can understand
             .flat_map(|x| {
                 build_packet_payload(GenericMessage::from(x), &mut self.builder)
                     .expect("failed to build packet")
             })
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+    }
+
+    pub(crate) fn send_packets_enum(
+        &mut self,
+        packets: impl Iterator<Item = InterfaceMessage>,
+    ) -> Result<(), RLBotError> {
+        let to_write = self.build_interface_messages(packets);
 
         self.stream.write_all(&to_write)?;
         self.stream.flush()?;
@@ -159,11 +167,7 @@ impl RLBotConnection {
 
         self.stream.read_exact(buf)?;
 
-        let packet_ref: CorePacketRef =
-            CorePacketRef::read_as_root(buf).map_err(PacketParseError::InvalidFlatbuffer)?;
-        let packet: CorePacket = packet_ref.try_into().unwrap();
-
-        Ok(packet.message)
+        parse_core_message(buf)
     }
 
     /// Sets the TCP connection to core to be non-blocking.
@@ -215,6 +219,16 @@ impl RLBotConnection {
             field_info: *field_info.unwrap(),
         })
     }
+}
+
+/// Parse a flatbuffer payload into a [`CoreMessage`].
+/// The payload excludes the 2-byte length prefix.
+pub(crate) fn parse_core_message(buf: &[u8]) -> Result<CoreMessage, RLBotError> {
+    let packet_ref: CorePacketRef =
+        CorePacketRef::read_as_root(buf).map_err(PacketParseError::InvalidFlatbuffer)?;
+    let packet: CorePacket = packet_ref.try_into().unwrap();
+
+    Ok(packet.message)
 }
 
 #[derive(Error, Debug)]

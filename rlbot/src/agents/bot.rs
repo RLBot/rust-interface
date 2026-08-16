@@ -1,8 +1,15 @@
-use std::{io::ErrorKind, sync::Arc, thread};
+use std::{
+    io::{self, Read, Write},
+    sync::Arc,
+    thread,
+};
 
 use mio::Interest;
 
-use crate::{RLBotConnection, RLBotError, StartingInfo, flat::*, pkanal, util::PacketQueue};
+use crate::{
+    RLBotConnection, RLBotError, StartingInfo, flat::*, parse_core_message, pkanal,
+    util::PacketQueue,
+};
 
 use super::AgentError;
 
@@ -132,33 +139,67 @@ pub fn run_bot_agents<T: BotAgent>(
 
     connection.send_packet(InitComplete {})?;
 
-    // Main loop, broadcast packet to all of the bots, then wait for all of the outgoing vecs
+    // Main loop. Do all socket I/O through `mio_stream`, the handle registered
+    // with mio. On Windows, mio re-arms the readiness event only after I/O on
+    // the registered handle returns `WouldBlock`.
     let mut events = mio::Events::with_capacity(128);
+    let mut read_buf: Vec<u8> = Vec::with_capacity(1024);
+    let mut out_buf: Vec<u8> = Vec::new();
+    let mut writable_registered = false;
+
     'main: loop {
         poll.poll(&mut events, None)
             .expect("couldn't poll with mio");
         for event in &events {
             match event.token() {
-                INCOMING => 'incoming: loop {
-                    let packet = match connection.recv_packet() {
-                        Ok(x) => x,
-                        Err(RLBotError::Connection(e)) if e.kind() == ErrorKind::WouldBlock => {
-                            break 'incoming;
-                        }
-                        Err(e) => Err(e)?,
-                    };
-                    let packet = Arc::new(packet);
-
-                    for (incoming_sender, _) in &threads {
-                        if incoming_sender.send(packet.clone()).is_err() {
-                            return Err(AgentError::AgentPanic);
+                INCOMING => {
+                    if event.is_writable() && !out_buf.is_empty() {
+                        match flush_pending(&mut mio_stream, &mut out_buf) {
+                            Ok(true) => {
+                                poll.registry()
+                                    .reregister(&mut mio_stream, INCOMING, Interest::READABLE)
+                                    .expect("couldn't reregister tcp stream");
+                                writable_registered = false;
+                            }
+                            Ok(false) => {}
+                            Err(e) => return Err(RLBotError::Connection(e).into()),
                         }
                     }
+                    if event.is_readable() {
+                        'incoming: loop {
+                            match drain_socket(&mut mio_stream, &mut read_buf) {
+                                Ok(false) => {}
+                                Ok(true) => break 'incoming,
+                                Err(e) => return Err(RLBotError::Connection(e).into()),
+                            }
+                        }
 
-                    if matches!(&*packet, CoreMessage::DisconnectSignal(_)) {
-                        break 'main;
+                        // Broadcast each complete packet.
+                        'packets: loop {
+                            if read_buf.len() < 2 {
+                                break 'packets;
+                            }
+                            let data_len = u16::from_be_bytes([read_buf[0], read_buf[1]]);
+                            let frame_len = data_len as usize + 2;
+                            if read_buf.len() < frame_len {
+                                break 'packets;
+                            }
+                            let frame: Vec<u8> = read_buf.drain(..frame_len).collect();
+
+                            let packet = Arc::new(parse_core_message(&frame[2..])?);
+
+                            for (incoming_sender, _) in &threads {
+                                if incoming_sender.send(packet.clone()).is_err() {
+                                    return Err(AgentError::AgentPanic);
+                                }
+                            }
+
+                            if matches!(&*packet, CoreMessage::DisconnectSignal(_)) {
+                                break 'main;
+                            }
+                        }
                     }
-                },
+                }
                 OUTGOING => 'outgoing: loop {
                     let Ok(maybe_msgs) = outgoing_recver.try_recv() else {
                         break 'main;
@@ -168,7 +209,22 @@ pub fn run_bot_agents<T: BotAgent>(
                         break 'outgoing;
                     };
 
-                    connection.send_packets_enum(p.into_iter())?;
+                    out_buf.extend(connection.build_interface_messages(p.into_iter()));
+
+                    // Send the queued bytes when the socket becomes writable.
+                    // Only arm writability when there are bytes to send: a
+                    // writable edge on an empty buffer would be consumed
+                    // without flushing, and then never re-armed.
+                    if !out_buf.is_empty() && !writable_registered {
+                        poll.registry()
+                            .reregister(
+                                &mut mio_stream,
+                                INCOMING,
+                                Interest::READABLE | Interest::WRITABLE,
+                            )
+                            .expect("couldn't reregister tcp stream");
+                        writable_registered = true;
+                    }
                 },
                 _ => unreachable!(),
             }
@@ -180,6 +236,54 @@ pub fn run_bot_agents<T: BotAgent>(
     }
 
     Ok(())
+}
+
+/// Read bytes from core through the mio-registered handle.
+///
+/// Returns `Ok(true)` when the socket would block.
+fn drain_socket(mio_stream: &mut mio::net::TcpStream, read_buf: &mut Vec<u8>) -> io::Result<bool> {
+    let mut scratch = [0u8; 8192];
+    match mio_stream.read(&mut scratch) {
+        Ok(n) if n > 0 => {
+            read_buf.extend_from_slice(&scratch[..n]);
+            Ok(false)
+        }
+        // A zero-byte read means core closed the connection. Return an
+        // error so the loop does not spin forever.
+        Ok(_) => Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "connection to core closed",
+        )),
+        Err(e) if e.kind() == io::ErrorKind::WouldBlock => Ok(true),
+        Err(e) => Err(e),
+    }
+}
+
+/// Write queued bytes to core through the mio-registered handle.
+///
+/// Returns `Ok(true)` when all bytes are sent.
+fn flush_pending(mio_stream: &mut mio::net::TcpStream, out_buf: &mut Vec<u8>) -> io::Result<bool> {
+    let mut sent = 0;
+    while sent < out_buf.len() {
+        match mio_stream.write(&out_buf[sent..]) {
+            Ok(0) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::WriteZero,
+                    "socket stopped accepting data",
+                ));
+            }
+            Ok(n) => sent += n,
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
+            Err(e) => return Err(e),
+        }
+    }
+    if sent == out_buf.len() {
+        out_buf.clear();
+        Ok(true)
+    } else {
+        out_buf.drain(..sent);
+        Ok(false)
+    }
 }
 
 fn run_bot_agent<T: BotAgent>(
