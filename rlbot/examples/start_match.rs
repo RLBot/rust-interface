@@ -29,6 +29,7 @@ fn main() {
                 name: format!("BOT{i}"),
                 root_dir: String::default(),
                 run_command: String::default(),
+                environment: None,
                 loadout: None,
                 agent_id: agent_id.clone(),
                 hivemind: true,

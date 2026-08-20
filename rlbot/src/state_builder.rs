@@ -3,8 +3,8 @@
 //!
 //! Example:
 //! ```rust
+//! use rlbot::flat::{DesiredBallState, DesiredGameState, Vector3};
 //! use rlbot::state_builder::{DesiredCarStateExt, DesiredGameStateExt, DesiredPhysicsExt};
-//! use rlbot::flat::{DesiredGameState, Vector3};
 //!
 //! let mut dgs = DesiredGameState::default();
 //!
@@ -13,10 +13,12 @@
 //!     c.set_boost(100.);
 //! });
 //!
-//! dgs.mod_balls((0..5).map(|i| (i, |b| {
-//!     b.set_location_z(0.);
-//!     b.set_velocity_z(0.);
-//! })));
+//! dgs.mod_balls((0..5).map(|i| {
+//!     (i, |b: &mut DesiredBallState| {
+//!         b.set_location_z(0.);
+//!         b.set_velocity_z(0.);
+//!     })
+//! }));
 //! ```
 
 use rlbot_flat::flat::{
