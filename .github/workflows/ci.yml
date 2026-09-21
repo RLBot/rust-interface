@@ -10,14 +10,15 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
 jobs:
   fmt:
     name: Formatting
     if: github.event_name != 'release'
     runs-on: ubuntu-latest
-    concurrency:
-      group: ci-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
         with:
@@ -31,9 +32,6 @@ jobs:
     name: Clippy
     if: github.event_name != 'release'
     runs-on: ubuntu-latest
-    concurrency:
-      group: ci-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
         with:
@@ -48,9 +46,6 @@ jobs:
     name: Tests
     if: github.event_name != 'release'
     runs-on: ubuntu-latest
-    concurrency:
-      group: ci-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
         with:
@@ -63,9 +58,6 @@ jobs:
     name: MSRV (1.88)
     if: github.event_name != 'release'
     runs-on: ubuntu-latest
-    concurrency:
-      group: ci-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
         with:
@@ -82,7 +74,6 @@ jobs:
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     environment: crates-io
-    # No cancel-in-progress here on purpose: never cancel a publish mid-run.
     permissions:
       id-token: write # required for crates.io trusted publishing
       contents: read
