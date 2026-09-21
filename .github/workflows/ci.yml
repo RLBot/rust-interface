@@ -19,7 +19,7 @@ jobs:
       group: ci-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
@@ -35,7 +35,7 @@ jobs:
       group: ci-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
@@ -52,7 +52,7 @@ jobs:
       group: ci-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
@@ -67,7 +67,7 @@ jobs:
       group: ci-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
       - uses: dtolnay/rust-toolchain@1.88
@@ -87,7 +87,7 @@ jobs:
       id-token: write # required for crates.io trusted publishing
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: true
       - uses: dtolnay/rust-toolchain@stable
