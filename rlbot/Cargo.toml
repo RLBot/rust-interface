@@ -2,7 +2,14 @@
 name = "rlbot"
 version.workspace = true
 edition = "2024"
-license-file.workspace = true
+rust-version.workspace = true
+description = "Rust bindings for the RLBot framework, allowing you to write bots for Rocket League in Rust."
+readme = "README.md"
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords = ["bot", "rlbot", "rocket-league"]
+categories = ["api-bindings", "network-programming"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

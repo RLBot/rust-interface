@@ -102,7 +102,7 @@ impl Renderer {
     /// Draws text in 2d space.
     /// X and y uses screen-space coordinates, i.e. 0.1 is 10% of the screen width/height.
     /// Characters of the font are 20 pixels tall and 10 pixels wide when `scale == 1.0`.
-    /// Consider using [push] and `..default()` when using multiple default values.
+    /// Consider using [`Self::push`] and `..default()` when using multiple default values.
     #[allow(clippy::too_many_arguments)]
     pub fn string_2d(
         &mut self,
@@ -132,7 +132,7 @@ impl Renderer {
 
     /// Draws text anchored in 3d space.
     /// Characters of the font are 20 pixels tall and 10 pixels wide when `scale == 1.0`.
-    /// Consider using [push] and `..default()` when using multiple default values.
+    /// Consider using [`Self::push`] and `..default()` when using multiple default values.
     #[allow(clippy::too_many_arguments)]
     pub fn string_3d(
         &mut self,
@@ -160,7 +160,7 @@ impl Renderer {
 
     /// Draws a rectangle anchored in 2d space.
     /// X, y, width, and height uses screen-space coordinates, i.e. 0.1 is 10% of the screen width/height.
-    /// Consider using [push] and `..default()` when using multiple default values.
+    /// Consider using [`Self::push`] and `..default()` when using multiple default values.
     #[allow(clippy::too_many_arguments)]
     pub fn rect_2d(
         &mut self,
@@ -189,7 +189,7 @@ impl Renderer {
     /// Draws a rectangle anchored in 3d space.
     /// Width and height are screen-space sizes, i.e. 0.1 is 10% of the screen width/height.
     /// The size does not change based on distance to the camera.
-    /// Consider using [push] and `..default()` when using multiple default values.
+    /// Consider using [`Self::push`] and `..default()` when using multiple default values.
     pub fn rect_3d(
         &mut self,
         anchor: impl Into<RenderAnchor>,

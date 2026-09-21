@@ -2,7 +2,14 @@
 name = "rlbot_flat"
 version.workspace = true
 edition = "2024"
-license-file.workspace = true
+rust-version.workspace = true
+description = "FlatBuffers-generated types for the RLBot socket API. Most users want the `rlbot` crate instead."
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords = ["flatbuffers", "rlbot"]
+categories = ["encoding"]
+
 exclude = ["codegen/", "examples/regen.rs"]
 
 [dependencies]
