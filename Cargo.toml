@@ -1,16 +1,16 @@
 [workspace]
-members = ["rlbot", "rlbot_flat"]
-resolver = "3"
+package.version = "0.6.0"
 package.license-file = "LICENSE"
-package.version = "0.1.0"
-
-[profile.release]
-lto = "fat"
-opt-level = 3
-codegen-units = 1
-panic = "abort"
+resolver = "3"
+members = ["rlbot", "rlbot_flat"]
 
 [profile.dev]
 opt-level = 3
-codegen-units = 1
 panic = "abort"
+codegen-units = 1
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+panic = "abort"
+codegen-units = 1
