@@ -19,6 +19,9 @@ pub mod state_builder;
 pub mod util;
 
 #[cfg(feature = "glam")]
+/// Re-exported [`glam`](https://docs.rs/glam) math types for convenience.
+/// Available by default via the `glam` feature; the [`flat`] types convert
+/// to and from them.
 pub use rlbot_flat::glam;
 
 pub mod flat {
@@ -31,12 +34,14 @@ pub mod flat {
 
 use flat::*;
 
+/// Something went wrong while unpacking a packet received from core.
 #[derive(Error, Debug)]
 pub enum PacketParseError {
     #[error("Unpacking flatbuffer failed")]
     InvalidFlatbuffer(#[from] planus::Error),
 }
 
+/// Something went wrong while talking to core over the socket.
 #[derive(Error, Debug)]
 pub enum RLBotError {
     #[error("Connection to RLBot failed")]
@@ -66,13 +71,26 @@ impl From<CoreMessage> for GenericMessage {
     }
 }
 
+/// The three packets every interface waits for after connecting.
+///
+/// Returned by [`RLBotConnection::get_starting_info`]. The agent runners
+/// fetch this for you; you only need it when using the connection directly.
 pub struct StartingInfo {
+    /// Which team and controllables this interface owns.
     pub controllable_team_info: ControllableTeamInfo,
+    /// The match setup: players, settings, and mutators.
     pub match_configuration: MatchConfiguration,
+    /// Static geometry: goals, boosts, and the ball shape.
     pub field_info: FieldInfo,
 }
 
 /// A wrapper around a TCP connection to [core](https://github.com/RLBot/core).
+///
+/// This is the lower-level API: you send [`InterfaceMessage`]s and receive
+/// [`CoreMessage`]s yourself. Most users want the [`agents`] runners instead,
+/// which manage this connection for them.
+///
+/// [`agents`]: crate::agents
 pub struct RLBotConnection {
     pub(crate) stream: TcpStream,
     builder: planus::Builder,
@@ -114,11 +132,19 @@ impl RLBotConnection {
     }
 
     /// Send anything that turns into an [`InterfaceMessage`] to core.
+    ///
+    /// Most packet types convert with `.into()` automatically, e.g.
+    /// [`PlayerInput`], [`ConnectionSettings`], and [`RenderGroup`].
     pub fn send_packet(&mut self, packet: impl Into<InterfaceMessage>) -> Result<(), RLBotError> {
         self.send_packet_enum(packet.into())
     }
 
     /// Receive a [`CoreMessage`] from core.
+    ///
+    /// Blocks until a full packet arrives. Match on the result to handle
+    /// [`GamePacket`]s, [`MatchComm`]s,
+    /// and the rest. Use [`set_nonblocking`](Self::set_nonblocking) plus
+    /// your own polling if you can't afford to block.
     pub fn recv_packet(&mut self) -> Result<CoreMessage, RLBotError> {
         let mut buf = [0u8; 2];
 
@@ -134,12 +160,43 @@ impl RLBotConnection {
     }
 
     /// Sets the TCP connection to core to be non-blocking.
+    ///
+    /// After this, [`recv_packet`](Self::recv_packet) returns an
+    /// [`RLBotError::Connection`] with [`ErrorKind::WouldBlock`] instead of
+    /// waiting when no packet has arrived yet.
+    ///
+    /// [`ErrorKind::WouldBlock`]: std::io::ErrorKind::WouldBlock
     pub fn set_nonblocking(&self, nonblocking: bool) -> Result<(), RLBotError> {
         self.stream.set_nonblocking(nonblocking)?;
         Ok(())
     }
 
-    /// Establish a new connection to core
+    /// Establish a new connection to core.
+    ///
+    /// `addr` is usually taken from [`AgentEnvironment::from_env`], e.g.
+    /// `"127.0.0.1:23234"` when running locally.
+    ///
+    /// [`AgentEnvironment::from_env`]: crate::util::AgentEnvironment::from_env
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use rlbot::{RLBotConnection, flat::ConnectionSettings};
+    ///
+    /// let mut connection = RLBotConnection::new("127.0.0.1:23234")?;
+    /// connection.send_packet(ConnectionSettings {
+    ///     agent_id: "my-interface".to_string(),
+    ///     wants_ball_predictions: false,
+    ///     wants_comms: false,
+    ///     close_between_matches: true,
+    /// })?;
+    ///
+    /// loop {
+    ///     let packet = connection.recv_packet()?;
+    ///     println!("{packet:?}");
+    /// }
+    /// # Ok::<(), rlbot::RLBotError>(())
+    /// ```
     pub fn new(addr: &str) -> Result<Self, RLBotError> {
         let stream = TcpStream::connect(SocketAddr::from_str(addr)?)?;
 
@@ -154,6 +211,10 @@ impl RLBotConnection {
 
     /// Wait until we get [`ControllableTeamInfo`], [`MatchConfiguration`], and
     /// [`FieldInfo`] from core, discarding all other packets.
+    ///
+    /// Blocks until all three have arrived. Anything received in the
+    /// meantime (e.g. early [`GamePacket`]s) is dropped,
+    /// so call this before entering your main loop.
     pub fn get_starting_info(&mut self) -> Result<StartingInfo, RLBotError> {
         let mut controllable_team_info = None;
         let mut match_configuration = None;
@@ -194,6 +255,7 @@ pub(crate) fn parse_core_message(buf: &[u8]) -> Result<CoreMessage, RLBotError> 
     Ok(packet.message)
 }
 
+/// Something went wrong while serializing an outgoing packet.
 #[derive(Error, Debug)]
 pub enum PacketBuildError {
     #[error("Payload too large {0}, couldn't fit in u16")]

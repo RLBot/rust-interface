@@ -14,7 +14,56 @@ use crate::{
 use super::AgentError;
 
 #[allow(unused_variables)]
+/// The behavior of a single bot controlling one controllable (usually a car).
+///
+/// Implement this trait and pass it to [`run_bot_agents`]. The runner spawns
+/// one instance per controllable, each on its own thread, and calls [`tick`]
+/// for every [`GamePacket`] your car receives. Send inputs back by pushing
+/// [`PlayerInput`]s onto the [`PacketQueue`].
+///
+/// [`tick`]: BotAgent::tick
+/// [`GamePacket`]: crate::flat::GamePacket
+/// [`PlayerInput`]: crate::flat::PlayerInput
+/// [`PacketQueue`]: crate::util::PacketQueue
+///
+/// # Example
+///
+/// ```no_run
+/// use std::sync::Arc;
+/// use rlbot::agents::BotAgent;
+/// use rlbot::flat::{ControllableInfo, FieldInfo, GamePacket, MatchConfiguration, PlayerInput};
+/// use rlbot::util::PacketQueue;
+///
+/// struct ChaseAgent {
+///     index: u32,
+/// }
+///
+/// impl BotAgent for ChaseAgent {
+///     fn new(
+///         _team: u32,
+///         controllable_info: ControllableInfo,
+///         _match_config: Arc<MatchConfiguration>,
+///         _field_info: Arc<FieldInfo>,
+///         _packet_queue: &mut PacketQueue,
+///     ) -> Self {
+///         Self { index: controllable_info.index }
+///     }
+///
+///     fn tick(&mut self, game_packet: &GamePacket, packet_queue: &mut PacketQueue) {
+///         // ... decide on a controller state from game_packet ...
+///         packet_queue.push(PlayerInput {
+///             player_index: self.index,
+///             controller_state: Default::default(),
+///         });
+///     }
+/// }
+/// ```
 pub trait BotAgent {
+    /// Create a new agent for one controllable.
+    ///
+    /// Called once per controllable when the runner starts. The
+    /// `packet_queue` lets you send packets (e.g. [`RenderGroup`]s) before
+    /// the first tick.
     // TODO: Maybe pass a struct?
     fn new(
         team: u32,
@@ -23,20 +72,36 @@ pub trait BotAgent {
         field_info: Arc<FieldInfo>,
         packet_queue: &mut PacketQueue,
     ) -> Self;
+    /// React to the latest game state. Called for every [`GamePacket`].
+    ///
+    /// Push a [`PlayerInput`] onto the queue to drive your car this tick.
+    /// Pushing nothing is valid and just coasts.
+    ///
+    /// [`GamePacket`]: crate::flat::GamePacket
+    /// [`PlayerInput`]: crate::flat::PlayerInput
     fn tick(&mut self, game_packet: &GamePacket, packet_queue: &mut PacketQueue);
+    /// React to a match communication (quick chat / club message).
+    ///
+    /// Only fires if you passed `wants_comms: true` to [`run_bot_agents`].
     fn on_match_comm(&mut self, match_comm: &MatchComm, packet_queue: &mut PacketQueue) {}
+    /// React to a ball prediction update.
+    ///
+    /// Only fires if you passed `wants_ball_predictions: true` to
+    /// [`run_bot_agents`].
     fn on_ball_prediction(
         &mut self,
         ball_prediction: &BallPrediction,
         packet_queue: &mut PacketQueue,
     ) {
     }
+    /// React to core acknowledging (or dropping) your rendered groups.
     fn on_rendering_status(
         &mut self,
         rendering_status: &RenderingStatus,
         packet_queue: &mut PacketQueue,
     ) {
     }
+    /// React to a ping round-trip response. Useful for measuring latency.
     fn on_ping_response(&mut self, ping: &PingResponse, packet_queue: &mut PacketQueue) {}
 }
 
@@ -50,6 +115,28 @@ pub trait BotAgent {
 /// # Panics
 ///
 /// Panics if a thread can't be spawned for each agent.
+///
+/// # Example
+///
+/// ```no_run
+/// use rlbot::{RLBotConnection, agents::{BotAgent, run_bot_agents}, util::AgentEnvironment};
+/// # use std::sync::Arc;
+/// # use rlbot::flat::{ControllableInfo, FieldInfo, GamePacket, MatchConfiguration};
+/// # use rlbot::util::PacketQueue;
+/// # struct MyBot;
+/// # impl BotAgent for MyBot {
+/// #     fn new(_t: u32, _c: ControllableInfo, _m: Arc<MatchConfiguration>, _f: Arc<FieldInfo>, _q: &mut PacketQueue) -> Self { MyBot }
+/// #     fn tick(&mut self, _g: &GamePacket, _q: &mut PacketQueue) {}
+/// # }
+///
+/// let env = AgentEnvironment::from_env();
+/// let connection = RLBotConnection::new(&env.server_addr)?;
+/// let agent_id = env.agent_id.unwrap_or_else(|| "my-bot".to_string());
+///
+/// // Blocking: returns when core disconnects or no controllables remain.
+/// run_bot_agents::<MyBot>(agent_id, false, false, connection)?;
+/// # Ok::<(), rlbot::agents::AgentError>(())
+/// ```
 pub fn run_bot_agents<T: BotAgent>(
     // TODO: Maybe pass a struct?
     agent_id: String,

@@ -27,15 +27,23 @@ use rlbot_flat::flat::{
 };
 
 /// Extension methods for easy construction of a [DesiredGameState].
+///
+/// The `mod_*` helpers grow the car/ball vecs with defaults as needed, so
+/// `mod_car(2, ...)` on an empty state creates indices 0–2.
 pub trait DesiredGameStateExt {
+    /// Modify the desired match info, creating it if absent.
     fn mod_match_info(&mut self, build: impl FnOnce(&mut DesiredMatchInfo));
 
+    /// Modify the desired car at `index`, growing `car_states` if needed.
     fn mod_car(&mut self, index: usize, build: impl FnOnce(&mut DesiredCarState));
 
+    /// Modify several desired cars by `(index, build)` pairs.
     fn mod_cars(&mut self, build: impl IntoIterator<Item = (usize, impl Fn(&mut DesiredCarState))>);
 
+    /// Modify the desired ball at `index`, growing `ball_states` if needed.
     fn mod_ball(&mut self, index: usize, build: impl FnOnce(&mut DesiredBallState));
 
+    /// Modify several desired balls by `(index, build)` pairs.
     fn mod_balls(
         &mut self,
         build: impl IntoIterator<Item = (usize, impl Fn(&mut DesiredBallState))>,
@@ -94,7 +102,9 @@ impl DesiredGameStateExt for DesiredGameState {
 
 /// Extension methods for easy construction of a [DesiredMatchInfo].
 pub trait DesiredMatchInfoExt {
+    /// Set the world gravity's z component (normally negative).
     fn set_gravity_z(&mut self, gravity: f32);
+    /// Set the game speed multiplier (`1.0` is normal speed).
     fn set_game_speed(&mut self, speed: f32);
 }
 
@@ -113,7 +123,9 @@ impl DesiredMatchInfoExt for DesiredMatchInfo {
 
 /// Extension methods for easy construction of a [DesiredCarState].
 pub trait DesiredCarStateExt {
+    /// Set the car's boost amount (0–100).
     fn set_boost(&mut self, amount: f32);
+    /// Modify the car's physics, creating it if absent.
     fn mod_physics(&mut self, build: impl FnOnce(&mut DesiredPhysics));
 }
 
@@ -131,6 +143,7 @@ impl DesiredCarStateExt for DesiredCarState {
 
 /// Extension methods for easy construction of a [DesiredBallState].
 pub trait DesiredBallStateExt {
+    /// Modify the ball's physics.
     fn mod_physics(&mut self, build: impl FnOnce(&mut DesiredPhysics));
 }
 
@@ -142,22 +155,41 @@ impl DesiredBallStateExt for DesiredBallState {
 }
 
 /// Extension methods for easy construction of [DesiredPhysics].
+///
+/// Whole-value setters (`set_location`, ...) replace the field; component
+/// setters (`set_location_x`, ...) patch one axis and leave the rest alone.
 pub trait DesiredPhysicsExt {
+    /// Replace the location.
     fn set_location(&mut self, loc: impl Into<Vector3>);
+    /// Set the location's x component.
     fn set_location_x(&mut self, x: f32);
+    /// Set the location's y component.
     fn set_location_y(&mut self, y: f32);
+    /// Set the location's z component.
     fn set_location_z(&mut self, z: f32);
+    /// Replace the velocity.
     fn set_velocity(&mut self, vel: impl Into<Vector3>);
+    /// Set the velocity's x component.
     fn set_velocity_x(&mut self, x: f32);
+    /// Set the velocity's y component.
     fn set_velocity_y(&mut self, y: f32);
+    /// Set the velocity's z component.
     fn set_velocity_z(&mut self, z: f32);
+    /// Replace the rotation.
     fn set_rotation(&mut self, rot: impl Into<Rotator>);
+    /// Set the rotation's pitch component.
     fn set_rotation_pitch(&mut self, pitch: f32);
+    /// Set the rotation's yaw component.
     fn set_rotation_yaw(&mut self, yaw: f32);
+    /// Set the rotation's roll component.
     fn set_rotation_roll(&mut self, roll: f32);
+    /// Replace the angular velocity.
     fn set_angular_velocity(&mut self, ang_vel: impl Into<Vector3>);
+    /// Set the angular velocity's x component.
     fn set_angular_velocity_x(&mut self, x: f32);
+    /// Set the angular velocity's y component.
     fn set_angular_velocity_y(&mut self, y: f32);
+    /// Set the angular velocity's z component.
     fn set_angular_velocity_z(&mut self, z: f32);
 }
 

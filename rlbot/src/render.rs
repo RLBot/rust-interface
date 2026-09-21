@@ -4,6 +4,7 @@ use rlbot_flat::flat::{
 };
 
 #[rustfmt::skip]
+/// Ready-made [`Color`] constants for debug rendering.
 pub mod colors {
     use rlbot_flat::flat::Color;
     pub const TRANSPARENT: Color = Color { r: 0, g: 0, b: 0, a: 0 };
@@ -28,16 +29,21 @@ pub mod colors {
 /// [`build`]: Renderer::build
 ///
 /// Example:
-/// ```ignore
-/// use rlbot::render::{Renderer};
-/// use rlbot::render::colors::{BLUE, GREEN, RED};
+/// ```rust
+/// use rlbot::flat::Vector3;
+/// use rlbot::render::Renderer;
+/// use rlbot::render::colors::RED;
+/// use rlbot::util::PacketQueue;
 ///
 /// let mut draw = Renderer::new(0);
 ///
-/// draw.line_3d(car.pos, car.pos + car.forward() * 120., RED);
-/// draw.line_3d(car.pos, car.pos + car.rightward() * 120., GREEN);
-/// draw.line_3d(car.pos, car.pos + car.upward() * 120., BLUE);
+/// draw.line_3d(
+///     Vector3 { x: 0., y: 0., z: 0. },
+///     Vector3 { x: 0., y: 0., z: 100. },
+///     RED,
+/// );
 ///
+/// let mut packet_queue = PacketQueue::default();
 /// packet_queue.push(draw.build());
 /// ```
 pub struct Renderer {
