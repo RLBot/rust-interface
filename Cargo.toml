@@ -1,5 +1,5 @@
 [workspace]
-package.version = "0.6.0"
+package.version = "0.7.0"
 package.rust-version = "1.88"
 package.homepage = "https://rlbot.org"
 package.repository = "https://github.com/RLBot/rust-interface"
